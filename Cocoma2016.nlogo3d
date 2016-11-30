@@ -822,9 +822,9 @@ to die_convoi
 end
 
 to closest-target
-  set target min-one-of convois[distance-nowrap myself]
-  if (target != nobody)
+  ifelse (count convois > 0)
   [
+    set target min-one-of convois[distance-nowrap myself]
     if (distance-nowrap target > vision_range)[ set target nobody ]
     let tmp_name 0
     ifelse (target != nobody)
@@ -844,11 +844,15 @@ to closest-target
       ]
     ]
   ]
-end
-to closest-target-drone
-  set target min-one-of enemies[distance-nowrap myself]
-  if (target != nobody)
   [
+    set target nobody
+  ]
+end
+
+to closest-target-drone
+  ifelse (count enemies > 0)
+  [
+    set target min-one-of enemies[distance-nowrap myself]
     if (distance-nowrap target > vision_range)[ set target nobody ]
     let tmp_name 0
     ifelse (target != nobody)
@@ -867,6 +871,9 @@ to closest-target-drone
         set label (word "drone_" (who - min [who] of drones))
       ]
     ]
+  ]
+  [
+    set target nobody
   ]
 end
 
