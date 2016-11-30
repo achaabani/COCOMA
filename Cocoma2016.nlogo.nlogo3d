@@ -13,8 +13,8 @@ directed-link-breed [convoi-links convoi-link]
 globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: definit le niveau ou se trouvent toutes les informations de la carte (obstacles base etc.) car en 2D, niveau au sol ou se trouvent les agents, niveau basse altitude et niveau haute altitude
   base-patches base-entry base-central ; precache: definit ou se trouvent les patchs de la base d'atterrissage, le patch d'entree sur la piste d'atterrissage, et le patch ou doivent s'arreter les drones pour se recharger. Permet d'evaluer rapidement la distance et les besoins des drones (quand ils doivent rentrer a la base)
   as-cost as-path ; variables globales pour les chemins AStar: le cout d'un pas sur un patch, et as-path est la liste des plans, un pour chaque convoi leader
-  ;max-fuel max-ammo ; fuel and ammo for drones.
-  ;fuel-dec ; how much fuel will be decremented at each iteration
+                  ;max-fuel max-ammo ; fuel and ammo for drones.
+                  ;fuel-dec ; how much fuel will be decremented at each iteration
   mission-completed? mission-failed?
   send-interval ; communication period
   is-movie-recording?
@@ -22,11 +22,11 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
   convoi_split?
   tick_split
   leader_split
-  ]
+]
 
 patches-own [obstacle? base? hangar? objectif? bridge? ; variables topologiques au niveau mapAlt, permet de definir les patchs praticables et ceux qui sont des obstacles
   as-closed as-heuristic as-prev-pos ; variables temporaires pour calculer les chemins AStar (effaces a chaque calcul de plan)
-  ]
+]
 convois-own[incoming-queue
   finished? ; Is the goal reached ?
   leader?   ; car leading the convoi convoi
@@ -36,7 +36,7 @@ convois-own[incoming-queue
   speed maxdir ; maximal speed of a car, and max angle
   last-send-time ; communication historical time-stamp
   hp
-  ]
+]
 
 enemies-own [
   dead? ; Is the agent alive ?
@@ -61,7 +61,7 @@ drones-own [
   target ; Current target
   ticklastshot
   carbure; la quantité de carbure disponible
-  ;test
+         ;test
   anglerotation
 ]
 
@@ -104,7 +104,7 @@ to setup
   setup-drones
   setup-enemies
   ;setup-citizens
-;  setup-hq
+  ;  setup-hq
 
   setup-precache
   display ; reenable gui display
@@ -126,7 +126,7 @@ to setup-globals
 
   set send-interval 10 ; in number of steps
 
- ; set dist-R-set []
+                       ; set dist-R-set []
 
   set is-movie-recording? false
 
@@ -210,11 +210,11 @@ to setup-env
   ; Base de decollage et atterrissage pour les drones
   ask patches with[pzcor = mapAlt and pxcor >= 3 and pxcor < 5 and pycor >= 0 and pycor < 12][set pcolor 1 set base? true set hangar? false set obstacle? false] ; piste verticale
   ask patches with[pzcor = mapAlt and pycor = 0 and pxcor >= 0 and pxcor < 18][set pcolor 1 set base? true set hangar? false set obstacle? false] ; piste horizontale
-  ; Batiment (pour faire joli, ne sert a rien fonctionnellement)
+                                                                                                                                                  ; Batiment (pour faire joli, ne sert a rien fonctionnellement)
   ask patches with[pzcor <= solAlt and pxcor >= 0 and pxcor < 3 and pycor >= 0 and pycor < 5][set pcolor 3 set obstacle? true set base? false set hangar? false] ; Batiment
   ask patches with [pzcor < 5 and pxcor = 0 and pycor = 0 and pzcor > 0 ] [ set pcolor 3 set obstacle? true set base? false set hangar? false] ; Antenne
 
-  ; Montagnes
+                                                                                                                                               ; Montagnes
   let base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
   let base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
   if nb-mountains > 0 [
@@ -242,82 +242,71 @@ to drone-think
   let base-min-pxcor min [pxcor] of (patches with [hangar? and pzcor = mapAlt])
   let base-min-pycor min [pycor] of (patches with [hangar? and pzcor = mapAlt])
 
-  ask patches with [pcolor = [255 0 0 50]]
-  [
-    set pcolor [0 0 0 0]
-  ]
-
   ask drones [
     ifelse( carbure > carbure-min)
-    [
-      closest-target-drone
-      ifelse (target = nobody)
       [
-        let first-car min [who] of convois
-        if(leader_split != nobody)
+        closest-target-drone
+        ifelse (target = nobody)
         [
-          if(who mod 2 = 1) [
-            set first-car [who] of leader_split
+          let first-car min [who] of convois
+          if(leader_split != nobody)
+          [
+            if(who mod 2 = 1) [set first-car leader_split]
+          ]
+          ifelse distance convoi first-car > 10 [
+            face convoi first-car
+            ifelse distance convoi first-car > 9 [
+              fd speed * 2
+            ]
+            [
+              fd (distance convoi first-car - 9)
+            ]
+          ]
+          [
+            let xleader 0
+            let yleader 0
+            ask convoi first-car [
+              set xleader xcor
+              set yleader ycor
+            ]
+
+            let newX ( 9 * cos anglerotation + xleader )
+            let newY ( 9 * sin anglerotation + yleader )
+
+            facexy newX newY
+            setxy newX newY
+
+            set anglerotation ( anglerotation + 2)
           ]
         ]
 
-        let xleader [xcor] of convoi first-car
-        let yleader [ycor] of convoi first-car
-
-        let rayon 9
-        let newX ( rayon * cos anglerotation + xleader )
-        let newY ( rayon * sin anglerotation + yleader )
-
-        if (newX < 0) [set newX 0]
-        if (newY < 0) [set newY 0]
-        if (newX > max-pxcor) [set newX max-pxcor]
-        if (newY > max-pycor) [set newY max-pycor]
-
-        let dest patch newX newY zcor
-
-        ; Les avions longent le long du monde pour eviter le wrapping
-
-        face-nowrap dest
-
-        ;if who = min [who] of drones
-        ;[
-          ask dest [set pcolor [255 0 0 50]]
-        ;]
-
-        ifelse distance dest > speed
         [
-          fd speed * 2
-        ]
-        [
-          fd distance dest
-        ]
-      ]
-      [
-        face-nowrap target
-        ifelse dist target > shooting_range [
-          if fd-possible[fd speed]
-        ]
-        [
-          if (ticks - ticklastshot > rate-of-fire-enemies)[
-            set ticklastshot ticks
-            shoot2
+          face target
+          ifelse dist target > shooting_range [
+            if fd-possible[fd speed]
+          ]
+          [
+            if (ticks - ticklastshot > rate-of-fire-enemies)[
+              set ticklastshot ticks
+              shoot2
+            ]
           ]
         ]
       ]
-    ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
-    [
-      ifelse (distance-nowrap patch base-min-pxcor base-min-pycor zcor < 2)
       [
-        set carbure (Energie-drones * 10) ; recharrger une quantité pour aller retour
+        let d (xcor - base-max-pxcor) * (xcor - base-max-pxcor) + (ycor - base-max-pycor) * (ycor - base-max-pycor)
+        let Vol-oiseau sqrt (d)
+        ifelse ( vol-oiseau < 2)
+        [
+          set carbure (Energie-drones * 10) ; recharrger une quantité pour aller retour
+        ]
+        [
+          facexy base-max-pxcor base-max-pycor
+          fd 1
+        ]
       ]
-      [
-        facexy-nowrap base-min-pxcor base-min-pycor
-        fd speed * 2
-      ]
-    ]
     set carbure (carbure - quantité-consomée-drone-action)
-    set anglerotation ( anglerotation + 0.3)
   ]
 
 end
@@ -342,7 +331,7 @@ to setup-convois
       ; Init des structures BDI
       set incoming-queue [] ; Do not change
 
-      ; Init vars convois
+                            ; Init vars convois
       set speed 0.05 * simu-speed
       set maxdir 10 * simu-speed
       set heading 0
@@ -356,10 +345,7 @@ to setup-convois
       set hp 1
 
       ; Visu
-      if (showNames)
-      [
-        set label (word "convoi_" who) ; display the car names
-      ]
+      set label (word "convoi_" who) ; display the car names
     ]
 
     ; get the id of the first one
@@ -386,12 +372,12 @@ to setup-convois
       [
         ; we create a link between them
         create-convoi-link-to turtle (who - 1)
-        ;if who >= 4 and who mod 2 = 0 [ create-convoi-link-with turtle (who - 3) ]
+          ;if who >= 4 and who mod 2 = 0 [ create-convoi-link-with turtle (who - 3) ]
 
-        ; deploying
-        ifelse (who - 1) mod 2 = 0 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
-        set ycor base-max-pycor - (floor (who / 2) / (nb-cars / 2) * (base-max-pycor - base-min-pycor)) ; d'une rangee de plus en plus basse toutes les deux voitures
-        set zcor solAlt
+          ; deploying
+          ifelse (who - 1) mod 2 = 0 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
+          set ycor base-max-pycor - (floor (who / 2) / (nb-cars / 2) * (base-max-pycor - base-min-pycor)) ; d'une rangee de plus en plus basse toutes les deux voitures
+          set zcor solAlt
       ]
 
     ]
@@ -412,7 +398,7 @@ to setup-drones
 
     ask drones [
       set shape "airplane"
-      set color sky
+      set color pink
 
       set speed 0.05 * simu-speed
       set maxdir 10 * simu-speed
@@ -429,12 +415,10 @@ to setup-drones
 
       set ticklastshot (-1 * rate-of-fire-drones)
 
-      set carbure (Energie-drones * 10)
+      set carbure Energie-drones
 
-      if (showNames)
-      [
-        set label (word "drone_" (who - min [who] of drones))
-      ]
+      set label (word "drone_" (who - min [who] of drones))
+
 
       ; test
       ; anglerotation l'angle de auquel on se trouve autour du leader
@@ -510,10 +494,7 @@ to setup-enemies
 
       set ticklastshot (-1 * rate-of-fire-enemies)
 
-      if (showNames)
-      [
-        set label (word "enemy_" (who - min [who] of enemies))
-      ]
+      set label (word "enemy_" (who - min [who] of enemies))
     ]
   ]
 end
@@ -528,7 +509,7 @@ end
 ; Note3: limite en 2D pour cette application mais on peut facilement la modifier pour accepter la 3D (enlever les limites with [pzcor ...])
 to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
 
-  ; Desactivation du refresh GUI (car calculs internes): Pour etre plus rapide, on dit a NetLogo qu'il peut calculer toute cette fonction sans avoir a updater le GUI (que des calculs internes), comme ca le slider de vitesse n'influencera pas la vitesse de ce code (sinon en slower ca met vraiment beaucoup de temps)
+                                            ; Desactivation du refresh GUI (car calculs internes): Pour etre plus rapide, on dit a NetLogo qu'il peut calculer toute cette fonction sans avoir a updater le GUI (que des calculs internes), comme ca le slider de vitesse n'influencera pas la vitesse de ce code (sinon en slower ca met vraiment beaucoup de temps)
   if not debug-verbose [no-display]
 
   ; INIT
@@ -582,8 +563,8 @@ to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
 
       ; Dessin en live du chemin parcouru par astar
       if debug-verbose [
-      wait 0.01
-      ask pos [ set pcolor red ]
+        wait 0.01
+        ask pos [ set pcolor red ]
       ]
 
       ; Critere d'arret si reussite: on est sur le but donc on a trouve un chemin
@@ -594,7 +575,7 @@ to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
       [
         ; Expansion du meilleur candidat (expansion = on ajoute les voisins dans la liste open, des noeuds a visiter)
         ask [neighbors6-nowrap with [pzcor = start-pzcor and as-closed = 0 and not obstacle? and not base?]] of pos [ ; On ne visite que les voisins au meme niveau (astar en 2D, mais on peut etendre ici au 3D facilement!) ET on ne l'a pas deja visite (as-closed = 0) ET il n'y a pas d'obstacle sur ce patch
-          ; Calcul du score f de ce voisin
+                                                                                                                      ; Calcul du score f de ce voisin
           let g2 g + as-cost
           let h2 as-heuristic
           let f2 g2 + h2
@@ -675,11 +656,11 @@ end
 
 ; Return the 6 neighbours without the world wrap
 to-report neighbors6-nowrap
-; reports neighbors-nowrap-n or the indicated size
-report neighbors6 with
-[ abs (pxcor - [pxcor] of myself) <= 1
-  and abs (pycor - [pycor] of myself) <= 1
-]
+  ; reports neighbors-nowrap-n or the indicated size
+  report neighbors6 with
+  [ abs (pxcor - [pxcor] of myself) <= 1
+    and abs (pycor - [pycor] of myself) <= 1
+  ]
 end
 
 ; procedure principale de gestion des drones
@@ -692,7 +673,7 @@ to bullets-drones-think
       stop
     ]
 
-    face-nowrap targetBullet
+    face targetBullet
     ifelse (distance targetBullet > 1)
     [
       fd speed
@@ -730,7 +711,7 @@ to enemies-think
       ]
 
       [
-        face-nowrap target
+        face target
         ifelse dist target > shooting_range [
           if fd-possible[fd speed]
         ]
@@ -777,7 +758,7 @@ to bullets-enemies-think
       stop
     ]
 
-    face-nowrap targetBullet
+    face targetBullet
     ifelse (distance targetBullet > 1)
     [
       fd speed
@@ -832,16 +813,10 @@ to closest-target
       ask target[
         set tmp_name get-name
       ]
-      if (showNames)
-      [
-        set label (word "enemy_" (who - min [who] of enemies) " -> " tmp_name)
-      ]
+      set label (word "enemy_" (who - min [who] of enemies) " -> " tmp_name)
     ]
     [
-      if (showNames)
-      [
-        set label (word "enemy_" (who - min [who] of enemies))
-      ]
+      set label (word "enemy_" (who - min [who] of enemies))
     ]
   ]
 end
@@ -856,16 +831,10 @@ to closest-target-drone
       ask target[
         set tmp_name get-name
       ]
-      if (showNames)
-      [
-        set label (word "drone_" (who - min [who] of drones) " -> " tmp_name)
-      ]
+      set label (word "drone_" (who - min [who] of drones) " -> " tmp_name)
     ]
     [
-      if (showNames)
-      [
-        set label (word "drone_" (who - min [who] of drones))
-      ]
+      set label (word "drone_" (who - min [who] of drones))
     ]
   ]
 end
@@ -921,7 +890,7 @@ to convois-think
       ; Recalcule le chemin si nécessaire (par exemple au début de la simulation ou quand le convoi se sépare)
       ; Note: on est oblige de le faire en dehors du ask sinon on ne peut pas acceder a tous les patchs
       if empty? as-path or length as-path < (id + 1) or empty? (item id as-path) [ ; s'il n'y a pas encore de chemin du tout, ou pas de chemin pour cette voiture, on cree un plan AStar
-        ; Cree le plan AStar (attention a ca que le patch start soit au niveau ou il y a les obstacles, ici pzcor = mapAlt pour les obstacles)
+                                                                                   ; Cree le plan AStar (attention a ca que le patch start soit au niveau ou il y a les obstacles, ici pzcor = mapAlt pour les obstacles)
         let start-patch min-one-of (patches with [pzcor = mapAlt and not obstacle?]) [distance ?] ; on s'assure de choisir comme patch de depart un patch libre sans obstacle, sinon quand on split un convoi il se peut qu'il soit sur un obstacle et qu'il ne puisse jamais generer de chemin
         let new-path plan-astar ([patch-at 0 0 (pzcor * -1)] of start-patch) (one-of patches with [objectif?]) ([genlongpath?] of ?)
         ; S'il n'y a pas de plan et qu'on a essayé de trouver un long chemin, on attend la prochaine iteration et on reessaie mais avec un plan court
@@ -959,16 +928,16 @@ to convois-think
 
     ; Deplacement des leaders sur le chemin AStar
     ask convois with [leader? and not finished? and not dead?] [ ; Tant qu'on n'a pas atteint le but
-      ;move-convoi-naive ; deplacement naif sans AStar
+                                                                 ;move-convoi-naive ; deplacement naif sans AStar
 
-      ; Recupere le plan AStar
+                                                                 ; Recupere le plan AStar
       let my-as-path item (who - first-car) as-path
       if not empty? my-as-path [
         ; Deplacement par waypoints: on se deplace jusqu'au prochain patch du chemin jusqu'à l'atteindre
         let next-patch first my-as-path
         let zz pzcor
         set next-patch [patch-at 0 0 (zz - pzcor)] of next-patch ; mise a niveau de pzcor au cas ou le chemin a ete calculé sur un autre plan
-        ; Deplacement vers le prochain waypoint
+                                                                 ; Deplacement vers le prochain waypoint
         if next-patch != patch-here [move-convoi next-patch false false]
         ; Si on a atteint ce patch, on le supprime de la liste, et on va donc continuer vers le prochain patch du chemin
         if patch-here = next-patch [
@@ -999,16 +968,16 @@ to convois-think
 end
 
 to-report detect-obstacle
- if any? other patches in-cone 10 60 with [obstacle?] [report true]
-; if any? other patches in-cone 10 90 [report true]
-; if any? other patches in-cone 3 270 [report true]
- report false
+  if any? other patches in-cone 10 60 with [obstacle?] [report true]
+  ; if any? other patches in-cone 10 90 [report true]
+  ; if any? other patches in-cone 3 270 [report true]
+  report false
 end
 
 to turn-away
-   ;let free-patches neighbors with [not any? patches ]
-   ;if any? free-patches [face one-of free-patches]
-   rt random 10 - 5
+  ;let free-patches neighbors with [not any? patches ]
+  ;if any? free-patches [face one-of free-patches]
+  rt random 10 - 5
 end
 
 to check-convoi-finished
@@ -1385,7 +1354,7 @@ INPUTBOX
 321
 241
 nb-enemies
-0
+10
 1
 0
 Number
@@ -1483,7 +1452,7 @@ INPUTBOX
 655
 179
 Energie-drones
-10000
+1000
 1
 0
 Number
@@ -1509,17 +1478,6 @@ quantité-consomée-drone-action
 1
 0
 Number
-
-SWITCH
-131
-332
-274
-365
-showNames
-showNames
-1
-1
--1000
 
 @#$#@#$#@
 ## WHAT IS IT?
