@@ -345,6 +345,7 @@ to drone-think
         if(zcor = hauteAlt)
         [
           set dest patch base-min-pxcor base-min-pycor hauteAlt
+          face-nowrap dest
         ]
 
         ask dest [set pcolor [0 255 0 120]]
