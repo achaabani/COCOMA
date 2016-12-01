@@ -22,6 +22,11 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
   convoi_split?
   tick_split
   leader_split
+
+  base-max-pxcor
+  base-max-pycor
+  base-min-pxcor
+  base-min-pycor
   ]
 
 patches-own [obstacle? base? hangar? objectif? bridge? ; variables topologiques au niveau mapAlt, permet de definir les patchs praticables et ceux qui sont des obstacles
@@ -88,6 +93,12 @@ to setup
     setup-globals
     setup-env
     clear-turtles ; reinit the id of the agents
+
+    set base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
+    set base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
+    set base-min-pxcor min [pxcor] of (patches with [hangar? and pzcor = mapAlt])
+    set base-min-pycor min [pycor] of (patches with [hangar? and pzcor = mapAlt])
+
     setup-convois ;
 
     ifelse nb-cars <= 0 [
@@ -215,11 +226,9 @@ to setup-env
   ask patches with [pzcor < 5 and pxcor = 0 and pycor = 0 and pzcor > 0 ] [ set pcolor 3 set obstacle? true set base? false set hangar? false] ; Antenne
 
   ; Montagnes
-  let base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
-  let base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
   if nb-mountains > 0 [
     ask n-of nb-mountains patches with [pzcor = mapAlt and (pxcor > ( base-max-pxcor + 10 ) or pycor > ( base-max-pycor + 10 ))] [
-      let rayon ((random 5) + 5)
+      let rayon ((random basseAlt) + (hauteAlt - basseAlt))
       ask patches with [distance-nowrap myself < rayon] [
         set pcolor grey set obstacle? true
       ]
@@ -236,15 +245,10 @@ end
 ;------------------
 
 to drone-think
-  ; les cordonnées de la base
-  let base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
-  let base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
-  let base-min-pxcor min [pxcor] of (patches with [hangar? and pzcor = mapAlt])
-  let base-min-pycor min [pycor] of (patches with [hangar? and pzcor = mapAlt])
 
-  ask patches with [pcolor = [255 0 0 50]]
+  ask patches with [pcolor = [255 0 0 120]]
   [
-    set pcolor [0 0 0 0]
+    set pcolor [255 0 0 0]
   ]
 
   ask drones [
@@ -273,7 +277,7 @@ to drone-think
         if (newX > max-pxcor) [set newX max-pxcor]
         if (newY > max-pycor) [set newY max-pycor]
 
-        let dest patch newX newY zcor
+        let dest patch newX newY basseAlt
 
         ; Les avions longent le long du monde pour eviter le wrapping
 
@@ -281,7 +285,7 @@ to drone-think
 
         ;if who = min [who] of drones
         ;[
-          ask dest [set pcolor [255 0 0 50]]
+          ask dest [set pcolor [255 0 0 120]]
         ;]
 
         ifelse distance dest > speed
@@ -307,7 +311,7 @@ to drone-think
     ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
     [
-      ifelse (distance-nowrap patch base-min-pxcor base-min-pycor zcor < 2)
+      ifelse (distance-nowrap patch base-min-pxcor base-min-pycor basseAlt < 2)
       [
         set carbure (Energie-drones * 10) ; recharrger une quantité pour aller retour
       ]
@@ -325,11 +329,6 @@ end
 
 to setup-convois
   if nb-cars > 0 [
-    ; get the size of the base to deploy the car accordingly
-    let base-min-pxcor min [pxcor] of (patches with [hangar? and pzcor = mapAlt])
-    let base-max-pxcor max [pxcor] of (patches with [hangar? and pzcor = mapAlt])
-    let base-min-pycor min [pycor] of (patches with [hangar? and pzcor = mapAlt])
-    let base-max-pycor max [pycor] of (patches with [hangar? and pzcor = mapAlt])
 
     ; creation des voitures du convoi et cortege
     create-convois nb-cars
@@ -400,10 +399,8 @@ end
 
 to setup-drones
   if nb-drones > 0 [
-    let base-min-pxcor min [pxcor] of (patches with [base? and pzcor = mapAlt])
-    let base-min-pycor ( (min [pycor] of (patches with [base? and pzcor = mapAlt])) + 1)
-    let base-max-pxcor max [pxcor] of (patches with [base? and pzcor = mapAlt and pycor > 1])
-    let base-max-pycor max [pycor] of (patches with [base? and pzcor = mapAlt])
+    let base-min-pycor-drones ( (min [pycor] of (patches with [base? and pzcor = mapAlt])) + 1)
+    let base-max-pxcor-drones max [pxcor] of (patches with [base? and pzcor = mapAlt and pycor > 1])
 
     create-drones nb-drones
 
@@ -445,18 +442,18 @@ to setup-drones
     ask drone first-drone [
       ;set leader? true
       set color blue
-      set xcor base-max-pxcor
+      set xcor base-max-pxcor-drones
       set ycor base-max-pycor
-      set zcor solAlt
+      set zcor basseAlt
 
     ]
 
     ask turtle-set sort-on [who] drones with [who > first-drone]
       [
         ; deploying
-        ifelse (who - first-drone) mod 2 = 1 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
-        set ycor base-max-pycor - (floor ( (who - first-drone) / 2) / (nb-drones / 2) * (base-max-pycor - base-min-pycor)) ; d'une rangee de plus en plus basse toutes les deux voitures
-        set zcor solAlt
+        ifelse (who - first-drone) mod 2 = 1 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor-drones ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
+        set ycor base-max-pycor - (floor ( (who - first-drone) / 2) / (nb-drones / 2) * (base-max-pycor - base-min-pycor-drones)) ; d'une rangee de plus en plus basse toutes les deux voitures
+        set zcor basseAlt
       ]
 
   ]
@@ -477,9 +474,6 @@ end
 
 to setup-enemies
   if nb-enemies > 0 [
-
-    let base-max-pxcor max [pxcor] of (patches with [base? and pzcor = mapAlt])
-    let base-max-pycor max [pycor] of (patches with [base? and pzcor = mapAlt])
 
     create-enemies nb-enemies
     ask enemies [
@@ -825,22 +819,25 @@ to closest-target
   ifelse (count convois > 0)
   [
     set target min-one-of convois[distance-nowrap myself]
-    if (distance-nowrap target > vision_range)[ set target nobody ]
-    let tmp_name 0
-    ifelse (target != nobody)
+    if (target != nobody)
     [
-      ask target[
-        set tmp_name get-name
-      ]
-      if (showNames)
+      if (distance-nowrap target > vision_range)[ set target nobody ]
+      let tmp_name 0
+      ifelse (target != nobody)
       [
-        set label (word "enemy_" (who - min [who] of enemies) " -> " tmp_name)
+        ask target[
+          set tmp_name get-name
+        ]
+        if (showNames)
+        [
+          set label (word "enemy_" (who - min [who] of enemies) " -> " tmp_name)
+        ]
       ]
-    ]
-    [
-      if (showNames)
       [
-        set label (word "enemy_" (who - min [who] of enemies))
+        if (showNames)
+        [
+          set label (word "enemy_" (who - min [who] of enemies))
+        ]
       ]
     ]
   ]
@@ -853,22 +850,25 @@ to closest-target-drone
   ifelse (count enemies > 0)
   [
     set target min-one-of enemies[distance-nowrap myself]
-    if (distance-nowrap target > vision_range)[ set target nobody ]
-    let tmp_name 0
-    ifelse (target != nobody)
+    if (target != nobody)
     [
-      ask target[
-        set tmp_name get-name
-      ]
-      if (showNames)
+      if (distance-nowrap target > vision_range)[ set target nobody ]
+      let tmp_name 0
+      ifelse (target != nobody)
       [
-        set label (word "drone_" (who - min [who] of drones) " -> " tmp_name)
+        ask target[
+          set tmp_name get-name
+        ]
+        if (showNames)
+        [
+          set label (word "drone_" (who - min [who] of drones) " -> " tmp_name)
+        ]
       ]
-    ]
-    [
-      if (showNames)
       [
-        set label (word "drone_" (who - min [who] of drones))
+        if (showNames)
+        [
+          set label (word "drone_" (who - min [who] of drones))
+        ]
       ]
     ]
   ]
@@ -1124,15 +1124,31 @@ to reunite
     set leader? false
     set color magenta
   ]
+  set leader_split nobody
 end
 
 
 to go
-  convois-think
-  enemies-think
-  drone-think
-  bullets-drones-think
-  bullets-enemies-think
+  if (count convois > 0)
+  [
+    convois-think
+  ]
+  if (count enemies > 0)
+  [
+    enemies-think
+  ]
+  if (count drones > 0)
+  [
+    drone-think
+  ]
+  if (count bullets_drones > 0)
+  [
+    bullets-drones-think
+  ]
+  if (count bullets_enemies > 0)
+  [
+    bullets-enemies-think
+  ]
   tick
 end
 @#$#@#$#@
@@ -1231,7 +1247,7 @@ INPUTBOX
 92
 125
 nb-mountains
-0
+7
 1
 0
 Number
@@ -1242,7 +1258,7 @@ INPUTBOX
 147
 125
 nb-lakes
-0
+2
 1
 0
 Number
@@ -1253,7 +1269,7 @@ INPUTBOX
 212
 125
 nb-rivers
-0
+3
 1
 0
 Number
@@ -1490,7 +1506,7 @@ INPUTBOX
 655
 179
 Energie-drones
-10000
+1000
 1
 0
 Number
