@@ -1,0 +1,16 @@
+Diviser les drones en deux équipes : 
+ - Une équipe "bouclier" restant autour du convoi à une distance fixe et tirant sur les individus approchant
+ - Une équipe de reconnaissance avec deux comportements possibles :
+ 	- Sois un mouvement aléatoire, à la recherche d'ennemis
+ 	- Sois un bouclier plus large avec une liberté de mouvement limitée <= Préféré
+
+Eviter les montages :
+ - Sois les contourner
+ - Sois monter au dessus
+
+Gestion du carburant de l'altitude :
+ Quels avions se trouvent plus haut?
+ Carburant en hauteur consomme moins vite qu'en low alt
+
+Synchro des drones pour ravitaillement :
+ - Instaurer système de roulement pour qu'il y ai toujours quelqu'un defendant le convoi
