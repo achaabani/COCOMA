@@ -78,6 +78,8 @@ drones-own [
   anglerotation
   beliefs
   intentions
+
+  role
 ]
 
 bullets_enemies-own [
@@ -282,12 +284,6 @@ to drone-think
       [
         let first-car min [who] of convois
 
-        if (change)
-        [
-          print [who] of drones
-          set anglerotation ( (position self listD) * (360 / length listD))
-        ]
-
         if(leader_split != nobody)
         [
           if(position self listD mod 2 = 1) [
@@ -299,7 +295,62 @@ to drone-think
         let xleader [xcor] of convoi first-car
         let yleader [ycor] of convoi first-car
 
-        let rayon 9
+        let rayon 0
+
+        let rangeShield 5
+        let rangeRecon 15
+
+        ifelse(leader_split = nobody)
+        ; Si le convoi n'est pas split, un drone sur 2 est en bouclier, l'autre est en reconnaissance
+        [
+          ifelse(position self listD mod 2 = 0)
+          [
+            set rayon rangeShield
+            set role "shield"
+          ]
+          [
+            set rayon rangeRecon
+            set role "recon"
+          ]
+        ]
+        [
+          ; Pour les agents du convoi 1, pairs
+          ifelse(position self listD mod 2 = 0)
+          [
+            ifelse(position self listD mod 4 = 2)
+            [
+              set rayon rangeShield
+              set role "shield"
+            ]
+            [
+              set rayon rangeRecon
+              set role "recon"
+            ]
+          ]
+          [
+            ifelse((position self listD + 1) mod 4 = 2)
+            [
+              set rayon rangeShield
+              set role "shield"
+            ]
+            [
+              set rayon rangeRecon
+              set role "recon"
+            ]
+          ]
+        ]
+
+
+        if (change)
+        [
+          let roleSelf role
+          let listRole sort-by < drones with [role = roleSelf]
+          set anglerotation ( (position self listRole) * (360 / length listRole))
+          ;print (word role ":" angleRotation)
+        ]
+
+        ;print angleRotation
+
         let newX ( rayon * cos anglerotation + xleader )
         let newY ( rayon * sin anglerotation + yleader )
 
@@ -333,12 +384,25 @@ to drone-think
 
         ask dest [set pcolor [255 0 0 120]]
 
-        ifelse distance dest > speed
+        if (role = "shield")
         [
-          fd speed * 2
+          ifelse distance dest > speed
+          [
+            fd speed * 2
+          ]
+          [
+            fd distance dest
+          ]
         ]
+        if (role = "recon")
         [
-          fd distance dest
+          ifelse distance dest > speed
+          [
+            fd speed * 4
+          ]
+          [
+            fd distance dest
+          ]
         ]
       ]
       [
