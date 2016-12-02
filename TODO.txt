@@ -10,3 +10,6 @@ Gestion du carburant de l'altitude :
 
 Synchro des drones pour ravitaillement :
  - Instaurer système de roulement pour qu'il y ai toujours quelqu'un defendant le convoi
+
+Drones : 
+ Fix reorganisation quand mort
