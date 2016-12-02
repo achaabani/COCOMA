@@ -1,3 +1,5 @@
+__includes ["bdi.nls" "communication.nls"]
+
 breed [waypoints waypoint]
 breed [envconstructors envconstructor]
 breed [convois convoi]
@@ -27,12 +29,15 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
   base-max-pycor
   base-min-pxcor
   base-min-pycor
+
+  listD
   ]
 
 patches-own [obstacle? base? hangar? objectif? bridge? ; variables topologiques au niveau mapAlt, permet de definir les patchs praticables et ceux qui sont des obstacles
   as-closed as-heuristic as-prev-pos ; variables temporaires pour calculer les chemins AStar (effaces a chaque calcul de plan)
   ]
-convois-own[incoming-queue
+convois-own[
+  incoming-queue
   finished? ; Is the goal reached ?
   leader?   ; car leading the convoi convoi
   to-protect? ; Should this car be protected at all cost ?
@@ -41,6 +46,8 @@ convois-own[incoming-queue
   speed maxdir ; maximal speed of a car, and max angle
   last-send-time ; communication historical time-stamp
   hp
+  beliefs
+  intentions
   ]
 
 enemies-own [
@@ -56,6 +63,7 @@ enemies-own [
 ]
 
 drones-own [
+  incoming-queue
   dead? ; Is the agent alive ?
   speed ; Speed of the agent
   maxdir ; Max turning angle
@@ -68,6 +76,8 @@ drones-own [
   carbure; la quantité de carbure disponible
   ;test
   anglerotation
+  beliefs
+  intentions
 ]
 
 bullets_enemies-own [
@@ -255,6 +265,15 @@ to drone-think
     set pcolor [ 0 255 0 0]
   ]
 
+  let change False
+
+  let newListD sort-by < drones
+  if (newListD != listD)
+  [
+    set listD sort-by < drones
+    set change True
+  ]
+
   ask drones [
     ifelse( carbure > carbure-min)
     [
@@ -262,12 +281,20 @@ to drone-think
       ifelse (target = nobody)
       [
         let first-car min [who] of convois
+
+        if (change)
+        [
+          print [who] of drones
+          set anglerotation ( (position self listD) * (360 / length listD))
+        ]
+
         if(leader_split != nobody)
         [
-          if(who mod 2 = 1) [
+          if(position self listD mod 2 = 1) [
             set first-car [who] of leader_split
           ]
         ]
+
 
         let xleader [xcor] of convoi first-car
         let yleader [ycor] of convoi first-car
@@ -468,7 +495,8 @@ to setup-drones
       ; test
       ; anglerotation l'angle de auquel on se trouve autour du leader
       ; position self sort-by < drones notre position dans la liste des drones
-      set anglerotation ( (position self sort-by < drones) * (360 / length sort-by < drones))
+      set listD sort-by < drones
+      set anglerotation ( (position self listD) * (360 / length listD))
     ]
 
     ask drone first-drone [
@@ -487,6 +515,9 @@ to setup-drones
         set ycor base-max-pycor - (floor ( (who - first-drone) / 2) / (nb-drones / 2) * (base-max-pycor - base-min-pycor-drones)) ; d'une rangee de plus en plus basse toutes les deux voitures
         set zcor basseAlt
       ]
+
+
+    set listD sort-by < drones
 
   ]
 end
@@ -1279,7 +1310,7 @@ INPUTBOX
 92
 125
 nb-mountains
-7
+0
 1
 0
 Number
@@ -1290,7 +1321,7 @@ INPUTBOX
 147
 125
 nb-lakes
-2
+0
 1
 0
 Number
@@ -1301,7 +1332,7 @@ INPUTBOX
 212
 125
 nb-rivers
-3
+0
 1
 0
 Number
@@ -1461,7 +1492,7 @@ INPUTBOX
 323
 179
 nb-drones
-10
+8
 1
 0
 Number
@@ -1538,7 +1569,7 @@ INPUTBOX
 655
 179
 Energie-drones
-1000
+5000
 1
 0
 Number
@@ -1572,6 +1603,38 @@ SWITCH
 365
 showNames
 showNames
+1
+1
+-1000
+
+SWITCH
+733
+114
+904
+147
+show-intentions
+show-intentions
+1
+1
+-1000
+
+TEXTBOX
+731
+46
+881
+64
+Communications/BDI
+12
+0.0
+1
+
+SWITCH
+732
+73
+906
+106
+show_messages
+show_messages
 1
 1
 -1000
