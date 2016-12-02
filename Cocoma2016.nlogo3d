@@ -459,6 +459,8 @@ end
 to setup-drones
   if nb-drones > 0 [
     let base-min-pycor-drones ( (min [pycor] of (patches with [base? and pzcor = mapAlt])) + 1)
+    let base-max-pycor-drones max [pycor] of (patches with [base? and pzcor = mapAlt])
+    let base-min-pxcor-drones min [pxcor] of (patches with [base? and pzcor = mapAlt])
     let base-max-pxcor-drones max [pxcor] of (patches with [base? and pzcor = mapAlt and pycor > 1])
 
     create-drones nb-drones
@@ -504,16 +506,16 @@ to setup-drones
       set color blue
       set xcor base-max-pxcor-drones
       set ycor base-max-pycor
-      set zcor basseAlt
+      set zcor solAlt
 
     ]
 
     ask turtle-set sort-on [who] drones with [who > first-drone]
       [
         ; deploying
-        ifelse (who - first-drone) mod 2 = 1 [ set xcor base-min-pxcor ] [ set xcor base-max-pxcor-drones ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
-        set ycor base-max-pycor - (floor ( (who - first-drone) / 2) / (nb-drones / 2) * (base-max-pycor - base-min-pycor-drones)) ; d'une rangee de plus en plus basse toutes les deux voitures
-        set zcor basseAlt
+        ifelse (who - first-drone) mod 2 = 1 [ set xcor base-min-pxcor-drones ] [ set xcor base-max-pxcor-drones ] ; a gauche ou a droite selon le nombre (pair ou impair respectivement)
+        set ycor base-max-pycor-drones - (floor ( (who - first-drone) / 2) / (nb-drones / 2) * (base-max-pycor-drones - base-min-pycor-drones)) ; d'une rangee de plus en plus basse toutes les deux voitures
+        set zcor solAlt
       ]
 
 
@@ -1310,7 +1312,7 @@ INPUTBOX
 92
 125
 nb-mountains
-0
+2
 1
 0
 Number
@@ -1321,7 +1323,7 @@ INPUTBOX
 147
 125
 nb-lakes
-0
+2
 1
 0
 Number
@@ -1332,7 +1334,7 @@ INPUTBOX
 212
 125
 nb-rivers
-0
+3
 1
 0
 Number
@@ -1366,7 +1368,7 @@ SWITCH
 358
 astar-longpath
 astar-longpath
-0
+1
 1
 -1000
 
