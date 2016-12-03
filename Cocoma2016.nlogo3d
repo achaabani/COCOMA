@@ -61,6 +61,8 @@ enemies-own [
   dmg ; Damage per shot
   target ; Current target
   ticklastshot
+
+  ammo ; Munitions
 ]
 
 drones-own [
@@ -83,6 +85,11 @@ drones-own [
   role ; Role du drone (bouclier ou recon)
   rayonConvoi ; Portee au convoi
   toProtect ; Convoi à proteger (main ou split)
+
+  ammo ; Munitions
+
+  canReload ; L'autre groupe du même rôle est-il déja en train de se recharger?
+  needReload ; 3 etats possible : 0 pas besoin de se recharger, 1 va se recharger, 2 pas besoin de se recharger et en retour vers le convoi
 ]
 
 bullets_enemies-own [
@@ -331,8 +338,29 @@ to drone-think
   ]
 
   ask drones [
-    ifelse( carbure > carbure-min)
+
+    let roleDrone role
+    let convoiProtecting toProtect
+
+    if((carbure < ((2.5 * carbure-min) + 1) or ammo = 0) and canReload)
     [
+      if (needReload = 0)
+      [
+        set needReload 1
+      ]
+      let pos position self sort-by < drones with [role = roleDrone and toProtect = convoiProtecting] mod 2
+      ask drones with [role = roleDrone and toProtect = convoiProtecting]
+      [
+        if (position self sort-by < drones with [role = roleDrone and toProtect = convoiProtecting] mod 2 != pos)
+        [
+          set canReload False
+        ]
+      ]
+    ]
+
+    ifelse(not (needReload = 1))
+    [
+
       closest-target-drone
       ifelse (target = nobody)
       [
@@ -354,15 +382,12 @@ to drone-think
             let roleSelf role
             let selfProtecting toProtect
             let listRole sort-by < drones with [role = roleSelf and toProtect = selfProtecting]
-            print (word self ":" listRole)
             set anglerotation ( (position self listRole) * (360 / length listRole))
             if (role = "recon")
             [
               set anglerotation anglerotation + 90
             ]
         ]
-
-        ;print angleRotation
 
         let newX ( rayonConvoi * cos anglerotation + xleader )
         let newY ( rayonConvoi * sin anglerotation + yleader )
@@ -417,6 +442,19 @@ to drone-think
             fd distance dest
           ]
         ]
+
+        if (needReload = 2)
+        [
+          if(distance dest < speed * 4)
+          [
+            set needReload 0
+            ask drones with [role = roleDrone and toProtect = convoiProtecting and (not canReload)]
+            [
+              set canReload True
+            ]
+          ]
+        ]
+
       ]
       [
         face-nowrap target
@@ -426,20 +464,27 @@ to drone-think
         [
           if (ticks - ticklastshot > rate-of-fire-enemies)[
             set ticklastshot ticks
-            shoot2
+            if (ammo > 0)
+            [
+              shoot2
+              set ammo (ammo - 1)
+            ]
           ]
         ]
       ]
+
     ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
     [
       ifelse (distance-nowrap patch base-min-pxcor base-min-pycor solAlt < 2)
       [
-        set carbure (Energie-drones * 10) ; recharrger une quantité pour aller retour
+        set carbure Qte_Carburant_Init ; recharrger une quantité pour aller retour
+        set needReload 2
       ]
       [
+        set needReload 1
         face-nowrap patch base-min-pxcor base-min-pycor solAlt
-        let dest patch-ahead (speed * 2)
+        let dest patch-ahead 1
         if ( [obstacle?] of patch-ahead 1 )
         [
           set dest patch [pxcor] of patch-ahead 1 [pycor] of patch-ahead 1 hauteAlt
@@ -575,9 +620,12 @@ to setup-drones
       set dead? false
       set target 0
 
+      set ammo Ammo-Enemies
       set ticklastshot (-1 * rate-of-fire-drones)
 
-      set carbure (Energie-drones * 10)
+      set carbure (Qte_Carburant_Init * 10)
+      set canReload True
+      set needReload 0
 
       if (showNames)
       [
@@ -657,6 +705,7 @@ to setup-enemies
       set dead? false
       set target 0
 
+      set ammo Ammo-Enemies
       set ticklastshot (-1 * rate-of-fire-enemies)
 
       if (showNames)
@@ -886,7 +935,11 @@ to enemies-think
         [
           if (ticks - ticklastshot > rate-of-fire-enemies)[
             set ticklastshot ticks
-            shoot
+            if (ammo > 0)
+            [
+              shoot
+              set ammo (ammo - 1)
+            ]
           ]
         ]
       ]
@@ -1664,8 +1717,8 @@ INPUTBOX
 119
 655
 179
-Energie-drones
-5000
+Qte_Carburant_Init
+1000
 1
 0
 Number
@@ -1676,7 +1729,7 @@ INPUTBOX
 654
 118
 carbure-min
-200
+100
 1
 0
 Number
@@ -1684,7 +1737,7 @@ Number
 INPUTBOX
 256
 246
-411
+437
 306
 quantité-consomée-drone-action
 10
@@ -1704,10 +1757,10 @@ showNames
 -1000
 
 SWITCH
-733
-114
-904
-147
+443
+688
+614
+721
 show-intentions
 show-intentions
 1
@@ -1715,25 +1768,47 @@ show-intentions
 -1000
 
 TEXTBOX
-731
-46
-881
-64
+441
+620
+591
+638
 Communications/BDI
 12
 0.0
 1
 
 SWITCH
-732
-73
-906
-106
+442
+647
+616
+680
 show_messages
 show_messages
 1
 1
 -1000
+
+INPUTBOX
+662
+120
+760
+180
+Ammo-Drones
+100
+1
+0
+Number
+
+INPUTBOX
+736
+182
+839
+242
+Ammo-Enemies
+100
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?

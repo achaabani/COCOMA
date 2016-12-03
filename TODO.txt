@@ -2,9 +2,8 @@ Gestion du carburant de l'altitude :
  Quels avions se trouvent plus haut?
  Carburant en hauteur consomme moins vite qu'en low alt
 
-Synchro des drones pour ravitaillement :
- - Instaurer système de roulement pour qu'il y ai toujours quelqu'un defendant le convoi
-
 Drones : 
  Fix angle lors du reunite
  Mettre a jour la fonction de tir : boucleir statiques, recons avec une liberté de mouvement
+ Gestion de la communication
+ Mise à jour de la fonction de tir selon le déplacement (Tir indépendant du mouvement)
