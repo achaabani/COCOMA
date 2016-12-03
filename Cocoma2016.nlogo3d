@@ -270,14 +270,14 @@ end
 
 to drone-think
 
-  ask patches with [pcolor = [255 0 0 120]]
-  [
-    set pcolor [255 0 0 0]
-  ]
-  ask patches with [pcolor = [0 255 0 120]]
-  [
-    set pcolor [ 0 255 0 0]
-  ]
+  ;ask patches with [pcolor = [255 0 0 120]]
+  ;[
+  ;  set pcolor [255 0 0 0]
+  ;]
+  ;ask patches with [pcolor = [0 255 0 120]]
+  ;[
+  ;  set pcolor [ 0 255 0 0]
+  ;]
 
   let newListD sort-by < drones
   if (newListD != listD)
@@ -290,11 +290,18 @@ to drone-think
         let rangeShield 5
         let rangeRecon 15
 
+
         ifelse(leader_split = nobody)
         ; Si le convoi n'est pas split, un drone sur 2 est en bouclier, l'autre est en reconnaissance
         [
           set toProtect "main"
-          set color yellow
+          ifelse (needReload = 0)
+          [
+            set color 46
+          ]
+          [
+            set color 44
+          ]
           ifelse(position self listD mod 2 = 0)
           [
             set rayonConvoi rangeShield
@@ -310,7 +317,13 @@ to drone-think
           ifelse(position self listD mod 2 = 0)
           [
             set toProtect "main"
-            set color black
+            ifelse (needReload = 0)
+            [
+              set color 46
+            ]
+            [
+              set color 44
+            ]
             ifelse(position self listD mod 4 = 2)
             [
               set rayonConvoi rangeShield
@@ -323,7 +336,13 @@ to drone-think
           ]
           [
             set toProtect "split"
-            set color yellow
+            ifelse (needReload = 0)
+            [
+              set color 86
+            ]
+            [
+              set color 84
+            ]
             ifelse((position self listD + 1) mod 4 = 2)
             [
               set rayonConvoi rangeShield
@@ -335,6 +354,11 @@ to drone-think
             ]
           ]
         ]
+  ]
+
+  if (change)
+  [
+    ask drones [ set canReload True ]
   ]
 
   ask drones [
@@ -420,7 +444,7 @@ to drone-think
         ]
 
 
-        ask dest [set pcolor [255 0 0 120]]
+        ;ask dest [set pcolor [255 0 0 120]]
 
         if (role = "shield")
         [
@@ -476,6 +500,7 @@ to drone-think
     ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
     [
+
       ifelse (distance-nowrap patch base-min-pxcor base-min-pycor solAlt < 2)
       [
         set carbure Qte_Carburant_Init ; recharrger une quantité pour aller retour
@@ -497,7 +522,7 @@ to drone-think
           ]
         ]
 
-        ask dest [set pcolor [0 255 0 120]]
+        ;ask dest [set pcolor [0 255 0 120]]
         fd speed * 2
       ]
     ]
@@ -623,7 +648,7 @@ to setup-drones
       set ammo Ammo-Enemies
       set ticklastshot (-1 * rate-of-fire-drones)
 
-      set carbure (Qte_Carburant_Init * 10)
+      set carbure Qte_Carburant_Init
       set canReload True
       set needReload 0
 
@@ -1459,7 +1484,7 @@ INPUTBOX
 92
 125
 nb-mountains
-7
+2
 1
 0
 Number
@@ -1620,7 +1645,7 @@ INPUTBOX
 321
 241
 nb-enemies
-0
+20
 1
 0
 Number
@@ -1641,7 +1666,7 @@ INPUTBOX
 323
 179
 nb-drones
-8
+5
 1
 0
 Number
@@ -1740,7 +1765,7 @@ INPUTBOX
 437
 306
 quantité-consomée-drone-action
-10
+1
 1
 0
 Number
