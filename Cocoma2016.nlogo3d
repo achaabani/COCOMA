@@ -30,7 +30,8 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
   base-min-pxcor
   base-min-pycor
 
-  listD
+  listD ; Liste contenant les drones vivants (pas un agentset)
+  change ; S'il y a un drone (ou plus) est mort au dernier pas
   ]
 
 patches-own [obstacle? base? hangar? objectif? bridge? ; variables topologiques au niveau mapAlt, permet de definir les patchs praticables et ceux qui sont des obstacles
@@ -79,7 +80,9 @@ drones-own [
   beliefs
   intentions
 
-  role
+  role ; Role du drone (bouclier ou recon)
+  rayonConvoi ; Portee au convoi
+  toProtect ; Convoi à proteger (main ou split)
 ]
 
 bullets_enemies-own [
@@ -156,6 +159,8 @@ to setup-globals
   set convoi_split? false
   set tick_split (-1 * delay-reunite)
   set leader_split nobody
+
+  set change False
 end
 
 
@@ -267,13 +272,62 @@ to drone-think
     set pcolor [ 0 255 0 0]
   ]
 
-  let change False
-
   let newListD sort-by < drones
   if (newListD != listD)
   [
-    set listD sort-by < drones
     set change True
+  ]
+
+  ask drones [
+
+        let rangeShield 5
+        let rangeRecon 15
+
+        ifelse(leader_split = nobody)
+        ; Si le convoi n'est pas split, un drone sur 2 est en bouclier, l'autre est en reconnaissance
+        [
+          set toProtect "main"
+          set color yellow
+          ifelse(position self listD mod 2 = 0)
+          [
+            set rayonConvoi rangeShield
+            set role "shield"
+          ]
+          [
+            set rayonConvoi rangeRecon
+            set role "recon"
+          ]
+        ]
+        [
+          ; Pour les agents du convoi 1, pairs
+          ifelse(position self listD mod 2 = 0)
+          [
+            set toProtect "main"
+            set color black
+            ifelse(position self listD mod 4 = 2)
+            [
+              set rayonConvoi rangeShield
+              set role "shield"
+            ]
+            [
+              set rayonConvoi rangeRecon
+              set role "recon"
+            ]
+          ]
+          [
+            set toProtect "split"
+            set color yellow
+            ifelse((position self listD + 1) mod 4 = 2)
+            [
+              set rayonConvoi rangeShield
+              set role "shield"
+            ]
+            [
+              set rayonConvoi rangeRecon
+              set role "recon"
+            ]
+          ]
+        ]
   ]
 
   ask drones [
@@ -295,64 +349,23 @@ to drone-think
         let xleader [xcor] of convoi first-car
         let yleader [ycor] of convoi first-car
 
-        let rayon 0
-
-        let rangeShield 5
-        let rangeRecon 15
-
-        ifelse(leader_split = nobody)
-        ; Si le convoi n'est pas split, un drone sur 2 est en bouclier, l'autre est en reconnaissance
-        [
-          ifelse(position self listD mod 2 = 0)
-          [
-            set rayon rangeShield
-            set role "shield"
-          ]
-          [
-            set rayon rangeRecon
-            set role "recon"
-          ]
-        ]
-        [
-          ; Pour les agents du convoi 1, pairs
-          ifelse(position self listD mod 2 = 0)
-          [
-            ifelse(position self listD mod 4 = 2)
-            [
-              set rayon rangeShield
-              set role "shield"
-            ]
-            [
-              set rayon rangeRecon
-              set role "recon"
-            ]
-          ]
-          [
-            ifelse((position self listD + 1) mod 4 = 2)
-            [
-              set rayon rangeShield
-              set role "shield"
-            ]
-            [
-              set rayon rangeRecon
-              set role "recon"
-            ]
-          ]
-        ]
-
-
         if (change)
         [
-          let roleSelf role
-          let listRole sort-by < drones with [role = roleSelf]
-          set anglerotation ( (position self listRole) * (360 / length listRole))
-          ;print (word role ":" angleRotation)
+            let roleSelf role
+            let selfProtecting toProtect
+            let listRole sort-by < drones with [role = roleSelf and toProtect = selfProtecting]
+            print (word self ":" listRole)
+            set anglerotation ( (position self listRole) * (360 / length listRole))
+            if (role = "recon")
+            [
+              set anglerotation anglerotation + 90
+            ]
         ]
 
         ;print angleRotation
 
-        let newX ( rayon * cos anglerotation + xleader )
-        let newY ( rayon * sin anglerotation + yleader )
+        let newX ( rayonConvoi * cos anglerotation + xleader )
+        let newY ( rayonConvoi * sin anglerotation + yleader )
 
         if (newX < 0) [set newX 0]
         if (newY < 0) [set newY 0]
@@ -371,7 +384,7 @@ to drone-think
 
         if ( [obstacle?] of patch-ahead (speed * 2) )
         [
-          set dest patch [pxcor] of patch-ahead (speed * 2) [pycor] of patch-ahead (speed * 2) hauteAlt
+          set dest patch [pxcor] of patch-ahead 1 [pycor] of patch-ahead 1 hauteAlt
           face-nowrap dest
 
           if(zcor = hauteAlt)
@@ -427,16 +440,16 @@ to drone-think
       [
         face-nowrap patch base-min-pxcor base-min-pycor solAlt
         let dest patch-ahead (speed * 2)
-        if ( [obstacle?] of patch-ahead (speed * 4) )
+        if ( [obstacle?] of patch-ahead 1 )
         [
-          set dest patch [pxcor] of dest [pycor] of dest hauteAlt
+          set dest patch [pxcor] of patch-ahead 1 [pycor] of patch-ahead 1 hauteAlt
           face-nowrap dest
-        ]
 
-        if(zcor = hauteAlt)
-        [
-          set dest patch base-min-pxcor base-min-pycor hauteAlt
-          face-nowrap dest
+          if(zcor = hauteAlt)
+          [
+            set dest patch base-min-pxcor base-min-pycor hauteAlt
+            face-nowrap dest
+          ]
         ]
 
         ask dest [set pcolor [0 255 0 120]]
@@ -444,9 +457,22 @@ to drone-think
       ]
     ]
     set carbure (carbure - quantité-consomée-drone-action)
-    set anglerotation ( anglerotation + 0.3)
+
+    let angleIncrement 0
+    ifelse (role = "shield")
+    [
+      set angleIncrement 0.3
+    ]
+    [
+      set angleIncrement 0.6
+    ]
+    set anglerotation (anglerotation + angleIncrement) mod 360
   ]
 
+  if(change)[
+    set listD sort-by < drones
+  ]
+  set change False
 end
 
 
@@ -1237,6 +1263,8 @@ to split
   ]
 
   set leader_split item ((length listAlive) / 2) listAlive
+
+  set change True
 end
 
 ; TODO REUNION A UN POINT DE RENCONTRE. POUR LE REUNITE
@@ -1254,6 +1282,8 @@ to reunite
     set color magenta
   ]
   set leader_split nobody
+
+  set change True
 end
 
 
@@ -1376,7 +1406,7 @@ INPUTBOX
 92
 125
 nb-mountains
-2
+7
 1
 0
 Number
@@ -1387,7 +1417,7 @@ INPUTBOX
 147
 125
 nb-lakes
-2
+0
 1
 0
 Number
@@ -1398,7 +1428,7 @@ INPUTBOX
 212
 125
 nb-rivers
-3
+0
 1
 0
 Number
@@ -1432,7 +1462,7 @@ SWITCH
 358
 astar-longpath
 astar-longpath
-1
+0
 1
 -1000
 
@@ -1478,7 +1508,7 @@ simu-speed
 simu-speed
 0
 10
-1
+2
 1
 1
 NIL
