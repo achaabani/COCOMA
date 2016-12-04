@@ -49,6 +49,8 @@ convois-own[
   hp
   beliefs
   intentions
+
+  enemyPos ; Liste des connaissances sur les ennemis
   ]
 
 enemies-own [
@@ -70,6 +72,7 @@ drones-own [
   dead? ; Is the agent alive ?
   speed ; Speed of the agent
   maxdir ; Max turning angle
+  leader? ; Le drone est-il le leader?
   vision_range ; Vision range
   shooting_range ; Shooting range
   hp ; Hitpoints
@@ -542,7 +545,12 @@ to drone-think
   if(change)[
     set listD sort-by < drones
   ]
+
   set change False
+
+  ; Communications
+  ask drones with [not leader?][comDronesToLead]
+  ask drones with [leader?][comLeadToConvoi]
 end
 
 
@@ -631,6 +639,7 @@ to setup-drones
     ask drones [
       set shape "airplane"
       set color sky
+      set leader? False
 
       set speed 0.05 * simu-speed
       set maxdir 10 * simu-speed
@@ -639,8 +648,8 @@ to setup-drones
       set roll 0
       set pitch 0
 
-      set vision_range 20
-      set shooting_range 10
+      set vision_range drone-vision_range
+      set shooting_range 5
 
       set dead? false
       set target 0
@@ -652,9 +661,11 @@ to setup-drones
       set canReload True
       set needReload 0
 
+      set incoming-queue []
+
       if (showNames)
       [
-        set label (word "drone_" (who - min [who] of drones))
+        set label (word "drone_" who)
       ]
 
       ; test
@@ -670,6 +681,7 @@ to setup-drones
       set xcor base-max-pxcor-drones
       set ycor base-max-pycor
       set zcor solAlt
+      set leader? True
 
     ]
 
@@ -735,7 +747,7 @@ to setup-enemies
 
       if (showNames)
       [
-        set label (word "enemy_" (who - min [who] of enemies))
+        set label (word "enemy_" who)
       ]
     ]
   ]
@@ -1063,13 +1075,13 @@ to closest-target
         ]
         if (showNames)
         [
-          set label (word "enemy_" (who - min [who] of enemies) " -> " tmp_name)
+          set label (word "enemy_" who " -> " tmp_name)
         ]
       ]
       [
         if (showNames)
         [
-          set label (word "enemy_" (who - min [who] of enemies))
+          set label (word "enemy_" who)
         ]
       ]
     ]
@@ -1094,13 +1106,13 @@ to closest-target-drone
         ]
         if (showNames)
         [
-          set label (word "drone_" (who - min [who] of drones) " -> " tmp_name)
+          set label (word "drone_" who " -> " tmp_name)
         ]
       ]
       [
         if (showNames)
         [
-          set label (word "drone_" (who - min [who] of drones))
+          set label (word "drone_" who)
         ]
       ]
     ]
@@ -1154,6 +1166,11 @@ to convois-think
   if nb-cars > 0 [
 
     let first-car min [who] of convois
+
+    ask convois with [leader?]
+    [
+      comConvoiUpdatePos
+    ]
 
     ; Calcul du plan AStar pour chaque leader si necessaire
     foreach sort-on [who] turtle-set convois with [leader? and not finished? and not dead?] [
@@ -1235,6 +1252,8 @@ to convois-think
         if not to-protect? [ set color orange ]
       ]
     ]
+
+
   ]
 end
 
@@ -1352,15 +1371,18 @@ to reunite
   let listAlive sort-by < convois
   let pos position leader_split listAlive
 
-  let prevCar item (pos - 1) listAlive
+  if (pos != 0 and pos != false)
+  [
+    let prevCar item (pos - 1) listAlive
 
-  ask leader_split [
-    create-convoi-link-to prevCar
-    set leader? false
-    set color magenta
+    ask leader_split [
+      create-convoi-link-to prevCar
+      set leader? false
+      set color magenta
+    ]
   ]
-  set leader_split nobody
 
+  set leader_split nobody
   set change True
 end
 
@@ -1387,6 +1409,75 @@ to go
     bullets-enemies-think
   ]
   tick
+end
+
+;;;;;;;;;;;;;;;;;;
+; Communications ;
+;;;;;;;;;;;;;;;;;;
+
+; communication entres les drones et leur leader
+to comDronesToLead
+  let sender self
+  let receiver one-of drones with [leader?]
+  let listMsg []
+
+  if(count enemies > 0)
+  [
+    let listeEnnemis sort-by < enemies with [dist sender < [vision_range] of sender]
+    foreach listeEnnemis
+    [
+      let tmpList []
+      set tmpList lput ? tmpList
+      set tmpList lput [xcor] of ? tmpList
+      set tmpList lput [ycor] of ? tmpList
+      set listMsg lput tmpList listMsg
+    ]
+  ]
+  let msg create-message "Enemy Positions"
+  set msg add-receiver receiver msg
+  set msg add-content listMsg msg
+  send msg
+end
+
+to comLeadToConvoi
+  let msgRecu get-message
+  let knownEnemies []
+  let toSend []
+  while [msgRecu != "no_message"]
+  [
+    let content get-content msgRecu
+    if (not empty? content)
+    [
+      foreach content
+      [
+        if (not member? item 0 ? knownEnemies)
+        [
+          set knownEnemies lput item 0 ? knownEnemies
+          set toSend lput ? toSend
+        ]
+      ]
+    ]
+    set msgRecu get-message
+  ]
+
+  if (count convois > 0)
+  [
+    let msgToSend create-message "Enemy Positions"
+    set msgToSend add-multiple-receivers sort-by < convois with [leader?] msgToSend
+    set msgToSend add-content toSend msgToSend
+    send msgToSend
+  ]
+end
+
+to comConvoiUpdatePos
+  let msgRecu get-message
+  while [msgRecu != "no_message"]
+  [
+    let content get-content msgRecu
+    set enemyPos content
+    set msgRecu get-message
+  ]
+
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -1495,7 +1586,7 @@ INPUTBOX
 147
 125
 nb-lakes
-0
+2
 1
 0
 Number
@@ -1506,7 +1597,7 @@ INPUTBOX
 212
 125
 nb-rivers
-0
+5
 1
 0
 Number
@@ -1586,7 +1677,7 @@ simu-speed
 simu-speed
 0
 10
-2
+10
 1
 1
 NIL
@@ -1645,7 +1736,7 @@ INPUTBOX
 321
 241
 nb-enemies
-20
+50
 1
 0
 Number
@@ -1666,7 +1757,7 @@ INPUTBOX
 323
 179
 nb-drones
-5
+4
 1
 0
 Number
@@ -1699,7 +1790,7 @@ INPUTBOX
 381
 115
 range-split
-1
+10
 1
 0
 Number
@@ -1743,7 +1834,7 @@ INPUTBOX
 655
 179
 Qte_Carburant_Init
-1000
+2000
 1
 0
 Number
@@ -1831,6 +1922,28 @@ INPUTBOX
 242
 Ammo-Enemies
 100
+1
+0
+Number
+
+INPUTBOX
+91
+239
+165
+299
+com-range
+10
+1
+0
+Number
+
+INPUTBOX
+673
+55
+828
+115
+drone-vision_range
+50
 1
 0
 Number
