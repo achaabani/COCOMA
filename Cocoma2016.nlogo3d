@@ -32,6 +32,8 @@ globals [mapAlt solAlt basseAlt hauteAlt ; variables topologiques Z discretise: 
 
   listD ; Liste contenant les drones vivants (pas un agentset)
   change ; S'il y a un drone (ou plus) est mort au dernier pas
+
+  objectif
   ]
 
 patches-own [obstacle? base? hangar? objectif? bridge? ; variables topologiques au niveau mapAlt, permet de definir les patchs praticables et ceux qui sont des obstacles
@@ -89,6 +91,7 @@ drones-own [
   rayonConvoi ; Portee au convoi
   toProtect ; Convoi à proteger (main ou split)
 
+  deadDrones
   ammo ; Munitions
 
   canReload ; L'autre groupe du même rôle est-il déja en train de se recharger?
@@ -141,6 +144,8 @@ to setup
   setup-enemies
   ;setup-citizens
 ;  setup-hq
+
+  set objectif one-of patches with [ objectif? ]
 
   setup-precache
   display ; reenable gui display
@@ -357,6 +362,10 @@ to drone-think
             ]
           ]
         ]
+        if (leader?)
+        [
+          set color orange
+        ]
   ]
 
   if (change)
@@ -369,7 +378,7 @@ to drone-think
     let roleDrone role
     let convoiProtecting toProtect
 
-    if((carbure < ((2.5 * carburant-min) + 1) or ammo = 0) and canReload)
+    if((carbure < ((2.5 * carburant-min) + 1) or ammo < Ammo-Drones / 5) and canReload)
     [
       if (needReload = 0)
       [
@@ -388,123 +397,98 @@ to drone-think
     ifelse(not (needReload = 1))
     [
 
-      closest-target-drone
-        let first-car min [who] of convois
+      closest-target-enemy
+      let first-car min [who] of convois
 
-        if(leader_split != nobody)
-        [
-          if(position self listD mod 2 = 1) [
-            set first-car [who] of leader_split
+      if(leader_split != nobody)
+      [
+        if(position self listD mod 2 = 1) [
+          set first-car [who] of leader_split
+        ]
+      ]
+
+
+      let xleader [xcor] of convoi first-car
+      let yleader [ycor] of convoi first-car
+
+      if (change)
+      [
+          let roleSelf role
+          let selfProtecting toProtect
+          let listRole sort-by < drones with [role = roleSelf and toProtect = selfProtecting]
+          set anglerotation ( (position self listRole) * (360 / length listRole))
+          if (role = "recon")
+          [
+            set anglerotation anglerotation + 90
           ]
-        ]
+      ]
 
+      let newX ( rayonConvoi * cos anglerotation + xleader )
+      let newY ( rayonConvoi * sin anglerotation + yleader )
 
-        let xleader [xcor] of convoi first-car
-        let yleader [ycor] of convoi first-car
+      if (newX < 0) [set newX 0]
+      if (newY < 0) [set newY 0]
+      if (newX > max-pxcor) [set newX max-pxcor]
+      if (newY > max-pycor) [set newY max-pycor]
 
-        if (change)
-        [
-            let roleSelf role
-            let selfProtecting toProtect
-            let listRole sort-by < drones with [role = roleSelf and toProtect = selfProtecting]
-            set anglerotation ( (position self listRole) * (360 / length listRole))
-            if (role = "recon")
-            [
-              set anglerotation anglerotation + 90
-            ]
-        ]
+      let dest patch newX newY basseAlt
+      if ( [obstacle?] of dest )
+      [
+        set dest patch newX newY hauteAlt
+      ]
 
-        let newX ( rayonConvoi * cos anglerotation + xleader )
-        let newY ( rayonConvoi * sin anglerotation + yleader )
+      ; Les avions longent le long du monde pour eviter le wrapping
 
-        if (newX < 0) [set newX 0]
-        if (newY < 0) [set newY 0]
-        if (newX > max-pxcor) [set newX max-pxcor]
-        if (newY > max-pycor) [set newY max-pycor]
+      face-nowrap dest
 
-        let dest patch newX newY basseAlt
-        if ( [obstacle?] of dest )
-        [
-          set dest patch newX newY hauteAlt
-        ]
-
-        ; Les avions longent le long du monde pour eviter le wrapping
-
+      if ( [obstacle?] of patch-ahead (speed * 2) )
+      [
+        set dest patch [pxcor] of patch-ahead 1 [pycor] of patch-ahead 1 hauteAlt
         face-nowrap dest
 
-        if ( [obstacle?] of patch-ahead (speed * 2) )
+        if(zcor = hauteAlt)
         [
-          set dest patch [pxcor] of patch-ahead 1 [pycor] of patch-ahead 1 hauteAlt
+          set dest patch newX newY hauteAlt
           face-nowrap dest
+        ]
+      ]
 
-          if(zcor = hauteAlt)
-          [
-            set dest patch newX newY hauteAlt
-            face-nowrap dest
+
+      ;ask dest [set pcolor [255 0 0 120]]
+
+
+      ; A VERIFIER PEUT ETRE
+      ifelse (target != nobody)
+      [
+        if dist target < shooting_range [
+          if (ticks - ticklastshot > rate-of-fire-drones)[
+            set ticklastshot ticks
+            if (ammo > 0)
+            [
+              shoot2
+              set ammo (ammo - 1)
+            ]
           ]
         ]
-
-
-        ;ask dest [set pcolor [255 0 0 120]]
-
-
-        ; A VERIFIER PEUT ETRE
-        ifelse (target != nobody)
+        ; Si les avions ont une cible, les "shield" gardent leur position, mais les "recon" peuvent chasser leurs cibles sur une certaine distance
+        if (role = "shield")
         [
-          if dist target < shooting_range [
-            if (ticks - ticklastshot > rate-of-fire-drones)[
-              set ticklastshot ticks
-              if (ammo > 0)
-              [
-                shoot2
-                set ammo (ammo - 1)
-              ]
-            ]
-          ]
-          ; Si les avions ont une cible, les "shield" gardent leur position, mais les "recon" peuvent chasser leurs cibles sur une certaine distance
-          if (role = "shield")
+          ifelse distance dest > speed
           [
-            ifelse distance dest > speed
-            [
-              fd speed * 2
-            ]
-            [
-              fd distance dest
-            ]
+            fd speed * 2
           ]
-          if (role = "recon")
           [
-            let toTarget patch-ahead 1
-            ifelse ([ distance toTarget ] of dest < 10 and dist target < shooting_range)
-            [
-              face-nowrap target
-              fd speed
-            ]
-            [
-              ifelse distance dest > speed
-              [
-                fd speed * 4
-              ]
-              [
-                fd distance dest
-              ]
-            ]
+            fd distance dest
           ]
-
-          face-nowrap target
         ]
+        if (role = "recon")
         [
-          if (role = "shield")
+          let toTarget patch-ahead 1
+          ifelse ([ distance toTarget ] of dest < 10 and dist target < shooting_range)
           [
-            ifelse distance dest > speed
-            [
-              fd speed * 2
-            ]
-            [
-              fd distance dest
-            ]
+            face-nowrap target
+            fd speed
           ]
-          if (role = "recon")
           [
             ifelse distance dest > speed
             [
@@ -516,17 +500,42 @@ to drone-think
           ]
         ]
 
-        if (needReload = 2)
+        face-nowrap target
+      ]
+      [
+        if (role = "shield")
         [
-          if(distance dest < speed * 4)
+          ifelse distance dest > speed
           [
-            set needReload 0
-            ask drones with [role = roleDrone and toProtect = convoiProtecting and (not canReload)]
-            [
-              set canReload True
-            ]
+            fd speed * 2
+          ]
+          [
+            fd distance dest
           ]
         ]
+        if (role = "recon")
+        [
+          ifelse distance dest > speed
+          [
+            fd speed * 4
+          ]
+          [
+            fd distance dest
+          ]
+        ]
+      ]
+
+      if (needReload = 2)
+      [
+        if(distance dest < speed * 4)
+        [
+          set needReload 0
+          ask drones with [role = roleDrone and toProtect = convoiProtecting and (not canReload)]
+          [
+            set canReload True
+          ]
+        ]
+      ]
 
     ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
@@ -607,7 +616,7 @@ to setup-convois
       set to-protect? false
       set genlongpath? false
       set dead? false
-      set hp 1
+      set hp hp_convois
 
       set enemyPos []
 
@@ -679,11 +688,14 @@ to setup-drones
       set pitch 0
 
       set vision_range drone-vision_range
-      set shooting_range 25
+      set shooting_range drone-shooting_range
+
+      set hp hp_drones
 
       set dead? false
       set target 0
 
+      set deadDrones []
       set ammo Ammo-Enemies
       set ticklastshot (-1 * rate-of-fire-drones)
 
@@ -753,6 +765,8 @@ to setup-enemies
       let x random max-pxcor
       let y random max-pxcor
 
+      set hp hp_enemies
+
       while [ ( x <= (base-max-pxcor + 10) and y <= (base-max-pycor + 10) ) or is_obstacle x y]
       [
         set x random max-pxcor
@@ -767,7 +781,7 @@ to setup-enemies
       set maxdir 10 * simu-speed
 
       set vision_range enemies-vision_range
-      set shooting_range 5
+      set shooting_range enemies-shooting_range
 
       set dead? false
       set target 0
@@ -1005,12 +1019,16 @@ to enemies-think
   if nb-enemies > 0 [
 
     ask enemies with [not dead?] [ ; Pour tous les ennemis vivants
-      closest-target
+      closest-target-convoi
+      if (target = nobody and canShootDrones?)
+      [
+        let ennemi self
+        set target one-of drones with [dist ennemi < enemies-vision_range]
+      ]
       ifelse (target = nobody)
       [
         random-move
       ]
-
       [
         face-nowrap target
         ifelse dist target > shooting_range [
@@ -1071,14 +1089,28 @@ to bullets-enemies-think
     [
       fd distance targetBullet
       ask targetBullet[
-        if (random-float 1 <= proba-hit-enemies)
+        let prob 0
+        ifelse (member? self convois)
+        [
+          set prob proba-hit-enemies
+        ]
+        [
+          set prob proba-hit-enemies / 2
+        ]
+        if (random-float 1 <= prob)
         [
           ; Si la cible est touchée, on réduit ses pv
           set hp (hp - 1)
           ; Si la cible doit mourir et qu'elle est leader d'un convoi split, le nouveau leader est celle qui la suivait
           if (hp <= 0)
           [
-            die_convoi
+            ifelse (member? self convois)
+            [
+              die_convoi
+            ]
+            [
+              die_drone
+            ]
           ]
         ]
       ]
@@ -1088,26 +1120,50 @@ to bullets-enemies-think
 end
 
 to die_convoi
-  ifelse (leader_split = self)
-  [
-    set leader_split one-of in-convoi-link-neighbors
+  ifelse (to-protect?)[
+    set mission-failed? true
   ]
   [
-    if not leader?
+    ifelse (leader_split = self)
     [
-      let outv one-of out-convoi-link-neighbors
-      let inv one-of in-convoi-link-neighbors
-      if inv != nobody [
-        ask inv [
-          create-convoi-link-to outv
+      set leader_split one-of in-convoi-link-neighbors
+    ]
+    [
+      if not leader?
+      [
+        let outv one-of out-convoi-link-neighbors
+        let inv one-of in-convoi-link-neighbors
+        if inv != nobody [
+          ask inv [
+            create-convoi-link-to outv
+          ]
         ]
       ]
-    ]
+  ]
   ]
   die
 end
 
-to closest-target
+to die_drone
+  if (leader?)
+  [
+    if (length listD > 1)
+    [
+      ask item 1 listD [ set leader? true ]
+    ]
+  ]
+  if (count drones > 1)
+  [
+    let msgToSend create-message "Death"
+    let sender self
+    set msgToSend add-multiple-receivers sort-by < drones with [member? self listD and self != sender] msgToSend
+    set msgToSend add-content who msgToSend
+    ;print msgToSend
+  ]
+  die
+end
+
+to closest-target-convoi
   ifelse (count convois > 0)
   [
     set target min-one-of convois[distance-nowrap myself]
@@ -1138,7 +1194,7 @@ to closest-target
   ]
 end
 
-to closest-target-drone
+to closest-target-enemy
   ifelse (count enemies > 0)
   [
     set target min-one-of enemies[distance-nowrap myself]
@@ -1217,8 +1273,12 @@ to convois-think
     ask convois with [leader?]
     [
       comConvoiUpdatePos
-      if (ticks mod 200 = 10)
+      if (ticks mod path-refresh = 10)
       [
+        if (ticks mod (2 * path-refresh) = 10)
+        [
+          set genlongpath? False
+        ]
         set as-path replace-item who as-path []
       ]
     ]
@@ -1440,27 +1500,27 @@ end
 
 
 to go
-  if (count convois > 0)
+  if ((count convois > 0 and count convois with [to-protect?] > 0) and not mission-completed? and not mission-failed?)
   [
     convois-think
+    if (count enemies > 0)
+    [
+      enemies-think
+    ]
+    if (count drones > 0)
+    [
+      drone-think
+    ]
+    if (count bullets_drones > 0)
+    [
+      bullets-drones-think
+    ]
+    if (count bullets_enemies > 0)
+    [
+      bullets-enemies-think
+    ]
+    tick
   ]
-  if (count enemies > 0)
-  [
-    enemies-think
-  ]
-  if (count drones > 0)
-  [
-    drone-think
-  ]
-  if (count bullets_drones > 0)
-  [
-    bullets-drones-think
-  ]
-  if (count bullets_enemies > 0)
-  [
-    bullets-enemies-think
-  ]
-  tick
 end
 
 ;;;;;;;;;;;;;;;;;;
@@ -1497,19 +1557,25 @@ to comLeadToConvoi
   let toSend []
   while [msgRecu != "no_message"]
   [
-    let content get-content msgRecu
-    if (not empty? content)
+    ifelse (get-performative msgRecu = "Death")
     [
-      foreach content
+      set deadDrones lput get-content msgRecu deadDrones
+    ]
+    [
+      let content get-content msgRecu
+      if (not empty? content)
       [
-        if (not member? item 0 ? knownEnemies)
+        foreach content
         [
-          set knownEnemies lput item 0 ? knownEnemies
-          set toSend lput ? toSend
+          if (not member? item 0 ? knownEnemies)
+          [
+            set knownEnemies lput item 0 ? knownEnemies
+            set toSend lput ? toSend
+          ]
         ]
       ]
+      set msgRecu get-message
     ]
-    set msgRecu get-message
   ]
 
   if (count convois > 0)
@@ -1593,10 +1659,10 @@ Environnement \n
 1
 
 INPUTBOX
-245
-51
-295
-111
+189
+47
+239
+107
 nb-cars
 10
 1
@@ -1626,7 +1692,7 @@ INPUTBOX
 105
 113
 nb-mountains
-0
+3
 1
 0
 Number
@@ -1637,7 +1703,7 @@ INPUTBOX
 60
 176
 nb-lakes
-0
+2
 1
 0
 Number
@@ -1648,7 +1714,7 @@ INPUTBOX
 122
 176
 nb-rivers
-0
+2
 1
 0
 Number
@@ -1782,12 +1848,12 @@ NIL
 1
 
 INPUTBOX
-243
-147
-312
-207
+179
+144
+248
+204
 nb-enemies
-50
+30
 1
 0
 Number
@@ -1804,45 +1870,45 @@ nb-drones
 Number
 
 INPUTBOX
-317
-147
-427
-207
+253
+144
+363
+204
 proba-hit-enemies
-0
+0.6
 1
 0
 Number
 
 INPUTBOX
-276
-213
-393
-273
+157
+209
+274
+269
 rate-of-fire-enemies
-1000
+300
 1
 0
 Number
 
 INPUTBOX
-299
-51
-374
-111
+243
+47
+318
+107
 range-split
-0
+10
 1
 0
 Number
 
 INPUTBOX
-378
-52
-462
-112
+322
+48
+406
+108
 delay-reunite
-1500
+700
 1
 0
 Number
@@ -1864,16 +1930,16 @@ INPUTBOX
 791
 114
 proba-hit-drones
-1
+0.8
 1
 0
 Number
 
 INPUTBOX
-677
-124
-788
-184
+608
+117
+719
+177
 Qte_Carburant_Init
 2000
 1
@@ -1881,21 +1947,21 @@ Qte_Carburant_Init
 Number
 
 INPUTBOX
-804
-122
-895
-182
+719
+117
+810
+177
 carburant-min
-100
+750
 1
 0
 Number
 
 INPUTBOX
-901
-122
-1018
-182
+810
+117
+927
+177
 carbuant-consomme
 1
 1
@@ -1957,12 +2023,12 @@ Ammo-Drones
 Number
 
 INPUTBOX
-394
-213
-497
-273
+275
+209
+378
+269
 Ammo-Enemies
-100
+20
 1
 0
 Number
@@ -1990,32 +2056,32 @@ drone-vision_range
 Number
 
 TEXTBOX
-249
-27
-399
-45
+193
+23
+343
+41
 Convoi
 11
 0.0
 1
 
 TEXTBOX
-252
-127
-402
-145
+188
+124
+338
+142
 Enemies
 11
 0.0
 1
 
 INPUTBOX
-430
-147
-558
-207
+366
+144
+494
+204
 enemies-vision_range
-30
+20
 1
 0
 Number
@@ -2029,6 +2095,83 @@ Drones
 11
 0.0
 1
+
+INPUTBOX
+411
+48
+491
+108
+path-refresh
+200
+1
+0
+Number
+
+INPUTBOX
+927
+117
+1048
+177
+drone-shooting_range
+20
+1
+0
+Number
+
+INPUTBOX
+380
+209
+514
+269
+enemies-shooting_range
+8
+1
+0
+Number
+
+INPUTBOX
+495
+48
+568
+108
+hp_convois
+5
+1
+0
+Number
+
+INPUTBOX
+495
+143
+575
+203
+hp_enemies
+3
+1
+0
+Number
+
+INPUTBOX
+1048
+117
+1116
+177
+hp_drones
+5
+1
+0
+Number
+
+SWITCH
+521
+224
+673
+257
+canShootDrones?
+canShootDrones?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
