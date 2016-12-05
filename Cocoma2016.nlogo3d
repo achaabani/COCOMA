@@ -1692,7 +1692,7 @@ SWITCH
 488
 astar-visu
 astar-visu
-1
+0
 1
 -1000
 
@@ -1705,7 +1705,7 @@ simu-speed
 simu-speed
 0
 10
-0
+1
 1
 1
 NIL
@@ -1819,7 +1819,7 @@ INPUTBOX
 462
 112
 delay-reunite
-200
+1500
 1
 0
 Number
