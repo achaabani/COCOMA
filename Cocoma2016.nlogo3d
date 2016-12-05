@@ -389,8 +389,6 @@ to drone-think
     [
 
       closest-target-drone
-      ifelse (target = nobody)
-      [
         let first-car min [who] of convois
 
         if(leader_split != nobody)
@@ -449,24 +447,72 @@ to drone-think
 
         ;ask dest [set pcolor [255 0 0 120]]
 
-        if (role = "shield")
+
+        ; A VERIFIER PEUT ETRE
+        ifelse (target != nobody)
         [
-          ifelse distance dest > speed
-          [
-            fd speed * 2
+          if dist target < shooting_range [
+            if (ticks - ticklastshot > rate-of-fire-drones)[
+              set ticklastshot ticks
+              if (ammo > 0)
+              [
+                shoot2
+                set ammo (ammo - 1)
+              ]
+            ]
           ]
+          ; Si les avions ont une cible, les "shield" gardent leur position, mais les "recon" peuvent chasser leurs cibles sur une certaine distance
+          if (role = "shield")
           [
-            fd distance dest
+            ifelse distance dest > speed
+            [
+              fd speed * 2
+            ]
+            [
+              fd distance dest
+            ]
           ]
+          if (role = "recon")
+          [
+            let toTarget patch-ahead 1
+            ifelse ([ distance toTarget ] of dest < 10 and dist target < shooting_range)
+            [
+              face-nowrap target
+              fd speed
+            ]
+            [
+              ifelse distance dest > speed
+              [
+                fd speed * 4
+              ]
+              [
+                fd distance dest
+              ]
+            ]
+          ]
+
+          face-nowrap target
         ]
-        if (role = "recon")
         [
-          ifelse distance dest > speed
+          if (role = "shield")
           [
-            fd speed * 4
+            ifelse distance dest > speed
+            [
+              fd speed * 2
+            ]
+            [
+              fd distance dest
+            ]
           ]
+          if (role = "recon")
           [
-            fd distance dest
+            ifelse distance dest > speed
+            [
+              fd speed * 4
+            ]
+            [
+              fd distance dest
+            ]
           ]
         ]
 
@@ -481,24 +527,6 @@ to drone-think
             ]
           ]
         ]
-
-      ]
-      [
-        face-nowrap target
-        ifelse dist target > shooting_range [
-          if fd-possible[fd speed]
-        ]
-        [
-          if (ticks - ticklastshot > rate-of-fire-enemies)[
-            set ticklastshot ticks
-            if (ammo > 0)
-            [
-              shoot2
-              set ammo (ammo - 1)
-            ]
-          ]
-        ]
-      ]
 
     ]
     ;else dans le cas ou le drone a une quantité des carbures minimum donc il decide à aller vers la base
@@ -649,7 +677,7 @@ to setup-drones
       set pitch 0
 
       set vision_range drone-vision_range
-      set shooting_range 5
+      set shooting_range 25
 
       set dead? false
       set target 0
@@ -723,7 +751,7 @@ to setup-enemies
       let x random max-pxcor
       let y random max-pxcor
 
-      while [ ( x < base-max-pxcor and y < base-max-pycor ) or is_obstacle x y]
+      while [ ( x <= (base-max-pxcor + 10) and y <= (base-max-pycor + 10) ) or is_obstacle x y]
       [
         set x random max-pxcor
         set y random max-pxcor
@@ -737,7 +765,7 @@ to setup-enemies
       set maxdir 10 * simu-speed
 
       set vision_range enemies-vision_range
-      set shooting_range 10
+      set shooting_range 5
 
       set dead? false
       set target 0
@@ -1575,7 +1603,7 @@ INPUTBOX
 105
 113
 nb-mountains
-2
+0
 1
 0
 Number
@@ -1586,7 +1614,7 @@ INPUTBOX
 60
 176
 nb-lakes
-2
+0
 1
 0
 Number
@@ -1597,7 +1625,7 @@ INPUTBOX
 122
 176
 nb-rivers
-5
+0
 1
 0
 Number
@@ -1664,7 +1692,7 @@ SWITCH
 488
 astar-visu
 astar-visu
-0
+1
 1
 -1000
 
@@ -1677,7 +1705,7 @@ simu-speed
 simu-speed
 0
 10
-10
+0
 1
 1
 NIL
@@ -1736,7 +1764,7 @@ INPUTBOX
 312
 207
 nb-enemies
-50
+30
 1
 0
 Number
@@ -1747,7 +1775,7 @@ INPUTBOX
 696
 114
 nb-drones
-4
+10
 1
 0
 Number
@@ -1769,7 +1797,7 @@ INPUTBOX
 393
 273
 rate-of-fire-enemies
-100
+200
 1
 0
 Number
@@ -1802,7 +1830,7 @@ INPUTBOX
 1009
 115
 rate-of-fire-drones
-150
+50
 1
 0
 Number
