@@ -609,6 +609,8 @@ to setup-convois
       set dead? false
       set hp 1
 
+      set enemyPos []
+
       ; Visu
       if (showNames)
       [
@@ -820,6 +822,12 @@ to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
   let resign false ; si aucun chemin ne peut etre trouve (plus rien dans la liste open)
   let counter 0 ; si on a visite trop de patchs et que la recherche met trop de temps
 
+  let listeConnus []
+  foreach [enemyPos] of item 0 sort-by < convois with [leader?]
+  [
+    set listeConnus lput item 0 ? listeConnus
+  ]
+
   while [not found and not resign] [
 
     ; Critere d'arret si echec (plus de patch a visiter ou trop de patchs deja visite)
@@ -860,6 +868,17 @@ to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
           ; Calcul du score f de ce voisin
           let g2 g + as-cost
           let h2 as-heuristic
+
+          ;Evitement de convoi
+          if (any? enemies)
+          [
+            let selfpatch self
+            ask enemies with [distance selfpatch < 10 and pzcor = solAlt and member? self listeConnus]
+            [
+              set h2 (h2 + 1000)
+            ]
+          ]
+
           let f2 g2 + h2
 
           ; Ajout dans la liste open des patchs a visiter
@@ -1198,6 +1217,10 @@ to convois-think
     ask convois with [leader?]
     [
       comConvoiUpdatePos
+      if (ticks mod 200 = 10)
+      [
+        set as-path replace-item who as-path []
+      ]
     ]
 
     ; Calcul du plan AStar pour chaque leader si necessaire
@@ -1206,6 +1229,7 @@ to convois-think
       ; Recalcule le chemin si nécessaire (par exemple au début de la simulation ou quand le convoi se sépare)
       ; Note: on est oblige de le faire en dehors du ask sinon on ne peut pas acceder a tous les patchs
       if empty? as-path or length as-path < (id + 1) or empty? (item id as-path) [ ; s'il n'y a pas encore de chemin du tout, ou pas de chemin pour cette voiture, on cree un plan AStar
+        print "new path"
         ; Cree le plan AStar (attention a ca que le patch start soit au niveau ou il y a les obstacles, ici pzcor = mapAlt pour les obstacles)
         let start-patch min-one-of (patches with [pzcor = mapAlt and not obstacle?]) [distance ?] ; on s'assure de choisir comme patch de depart un patch libre sans obstacle, sinon quand on split un convoi il se peut qu'il soit sur un obstacle et qu'il ne puisse jamais generer de chemin
         let new-path plan-astar ([patch-at 0 0 (pzcor * -1)] of start-patch) (one-of patches with [objectif?]) ([genlongpath?] of ?)
@@ -1505,7 +1529,6 @@ to comConvoiUpdatePos
     set enemyPos content
     set msgRecu get-message
   ]
-
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -1659,7 +1682,7 @@ SWITCH
 399
 astar-longpath
 astar-longpath
-0
+1
 1
 -1000
 
@@ -1681,7 +1704,7 @@ SWITCH
 530
 astar-visu-more
 astar-visu-more
-1
+0
 1
 -1000
 
@@ -1764,7 +1787,7 @@ INPUTBOX
 312
 207
 nb-enemies
-30
+50
 1
 0
 Number
@@ -1786,7 +1809,7 @@ INPUTBOX
 427
 207
 proba-hit-enemies
-0.2
+0
 1
 0
 Number
@@ -1797,7 +1820,7 @@ INPUTBOX
 393
 273
 rate-of-fire-enemies
-200
+1000
 1
 0
 Number
@@ -1808,7 +1831,7 @@ INPUTBOX
 374
 111
 range-split
-10
+0
 1
 0
 Number
@@ -1830,7 +1853,7 @@ INPUTBOX
 1009
 115
 rate-of-fire-drones
-50
+100
 1
 0
 Number
@@ -1841,7 +1864,7 @@ INPUTBOX
 791
 114
 proba-hit-drones
-0.6
+1
 1
 0
 Number
@@ -1961,7 +1984,7 @@ INPUTBOX
 905
 114
 drone-vision_range
-50
+20
 1
 0
 Number
