@@ -369,7 +369,7 @@ to drone-think
     let roleDrone role
     let convoiProtecting toProtect
 
-    if((carbure < ((2.5 * carbure-min) + 1) or ammo = 0) and canReload)
+    if((carbure < ((2.5 * carburant-min) + 1) or ammo = 0) and canReload)
     [
       if (needReload = 0)
       [
@@ -529,7 +529,7 @@ to drone-think
         fd speed * 2
       ]
     ]
-    set carbure (carbure - quantité-consomée-drone-action)
+    set carbure (carbure - carbuant-consomme)
 
     let angleIncrement 0
     ifelse (role = "shield")
@@ -736,7 +736,7 @@ to setup-enemies
       set speed 0.05 * simu-speed
       set maxdir 10 * simu-speed
 
-      set vision_range 20
+      set vision_range enemies-vision_range
       set shooting_range 10
 
       set dead? false
@@ -1511,9 +1511,9 @@ ticks
 
 SWITCH
 18
-332
+364
 121
-365
+397
 debug
 debug
 1
@@ -1522,9 +1522,9 @@ debug
 
 SWITCH
 16
-377
+409
 181
-410
+442
 debug-verbose
 debug-verbose
 1
@@ -1542,10 +1542,10 @@ Environnement \n
 1
 
 INPUTBOX
-252
-56
-302
-116
+245
+51
+295
+111
 nb-cars
 10
 1
@@ -1554,9 +1554,9 @@ Number
 
 BUTTON
 20
-527
+559
 93
-560
+592
 NIL
 setup
 NIL
@@ -1570,10 +1570,10 @@ NIL
 1
 
 INPUTBOX
-14
-65
-92
-125
+27
+53
+105
+113
 nb-mountains
 2
 1
@@ -1581,10 +1581,10 @@ nb-mountains
 Number
 
 INPUTBOX
-96
-65
-147
-125
+9
+116
+60
+176
 nb-lakes
 2
 1
@@ -1592,10 +1592,10 @@ nb-lakes
 Number
 
 INPUTBOX
-151
-65
-212
-125
+61
+116
+122
+176
 nb-rivers
 5
 1
@@ -1603,10 +1603,10 @@ nb-rivers
 Number
 
 INPUTBOX
-666
-327
-827
-387
+522
+368
+683
+428
 astar-faster
 0
 1
@@ -1614,10 +1614,10 @@ astar-faster
 Number
 
 INPUTBOX
-666
-401
-827
-461
+522
+442
+683
+502
 astar-max-depth
 5000
 1
@@ -1625,10 +1625,10 @@ astar-max-depth
 Number
 
 SWITCH
-474
-325
-638
-358
+330
+366
+494
+399
 astar-longpath
 astar-longpath
 0
@@ -1636,10 +1636,10 @@ astar-longpath
 -1000
 
 SWITCH
-474
-369
-637
-402
+330
+410
+493
+443
 astar-randpath
 astar-randpath
 1
@@ -1647,10 +1647,10 @@ astar-randpath
 -1000
 
 SWITCH
-471
-462
-633
-495
+328
+497
+490
+530
 astar-visu-more
 astar-visu-more
 1
@@ -1658,10 +1658,10 @@ astar-visu-more
 -1000
 
 SWITCH
-472
-414
-635
-447
+328
+455
+491
+488
 astar-visu
 astar-visu
 0
@@ -1670,9 +1670,9 @@ astar-visu
 
 SLIDER
 20
-474
+506
 192
-507
+539
 simu-speed
 simu-speed
 0
@@ -1685,9 +1685,9 @@ HORIZONTAL
 
 TEXTBOX
 12
-298
+330
 162
-316
+348
 Debug
 12
 0.0
@@ -1695,19 +1695,19 @@ Debug
 
 TEXTBOX
 14
-444
+476
 164
-462
+494
 Simulation
 12
 0.0
 1
 
 TEXTBOX
-455
-296
-605
-314
+311
+337
+461
+355
 A*
 12
 0.0
@@ -1715,9 +1715,9 @@ A*
 
 BUTTON
 116
-527
+559
 182
-560
+592
 start
 go
 T
@@ -1731,31 +1731,21 @@ NIL
 1
 
 INPUTBOX
-252
-181
-321
-241
+243
+147
+312
+207
 nb-enemies
 50
 1
 0
 Number
 
-TEXTBOX
-263
-18
-413
-36
-Agents
-12
-0.0
-1
-
 INPUTBOX
-252
-119
-323
-179
+625
+54
+696
+114
 nb-drones
 4
 1
@@ -1763,10 +1753,10 @@ nb-drones
 Number
 
 INPUTBOX
-325
-182
-435
-242
+317
+147
+427
+207
 proba-hit-enemies
 0.2
 1
@@ -1774,10 +1764,10 @@ proba-hit-enemies
 Number
 
 INPUTBOX
-439
-182
-556
-242
+276
+213
+393
+273
 rate-of-fire-enemies
 100
 1
@@ -1785,10 +1775,10 @@ rate-of-fire-enemies
 Number
 
 INPUTBOX
-306
-55
-381
-115
+299
+51
+374
+111
 range-split
 10
 1
@@ -1796,10 +1786,10 @@ range-split
 Number
 
 INPUTBOX
-385
-56
-469
-116
+378
+52
+462
+112
 delay-reunite
 200
 1
@@ -1807,10 +1797,10 @@ delay-reunite
 Number
 
 INPUTBOX
-573
-182
-728
-242
+910
+55
+1009
+115
 rate-of-fire-drones
 150
 1
@@ -1818,10 +1808,10 @@ rate-of-fire-drones
 Number
 
 INPUTBOX
-328
-120
-483
-180
+697
+54
+791
+114
 proba-hit-drones
 0.6
 1
@@ -1829,10 +1819,10 @@ proba-hit-drones
 Number
 
 INPUTBOX
-500
-119
-655
-179
+677
+124
+788
+184
 Qte_Carburant_Init
 2000
 1
@@ -1840,22 +1830,22 @@ Qte_Carburant_Init
 Number
 
 INPUTBOX
-499
-58
-654
-118
-carbure-min
+804
+122
+895
+182
+carburant-min
 100
 1
 0
 Number
 
 INPUTBOX
-256
-246
-437
-306
-quantité-consomée-drone-action
+901
+122
+1018
+182
+carbuant-consomme
 1
 1
 0
@@ -1863,9 +1853,9 @@ Number
 
 SWITCH
 131
-332
+364
 274
-365
+397
 showNames
 showNames
 1
@@ -1873,10 +1863,10 @@ showNames
 -1000
 
 SWITCH
-443
-688
-614
-721
+799
+314
+970
+347
 show-intentions
 show-intentions
 1
@@ -1884,20 +1874,20 @@ show-intentions
 -1000
 
 TEXTBOX
-441
-620
-591
-638
+797
+246
+947
+264
 Communications/BDI
 12
 0.0
 1
 
 SWITCH
-442
-647
-616
-680
+798
+273
+972
+306
 show_messages
 show_messages
 1
@@ -1905,10 +1895,10 @@ show_messages
 -1000
 
 INPUTBOX
-662
-120
-760
-180
+1013
+54
+1111
+114
 Ammo-Drones
 100
 1
@@ -1916,10 +1906,10 @@ Ammo-Drones
 Number
 
 INPUTBOX
-736
-182
-839
-242
+394
+213
+497
+273
 Ammo-Enemies
 100
 1
@@ -1927,26 +1917,67 @@ Ammo-Enemies
 Number
 
 INPUTBOX
-91
-239
-165
-299
+986
+284
+1060
+344
 com-range
-10
+40
 1
 0
 Number
 
 INPUTBOX
-673
-55
-828
-115
+793
+54
+905
+114
 drone-vision_range
 50
 1
 0
 Number
+
+TEXTBOX
+249
+27
+399
+45
+Convoi
+11
+0.0
+1
+
+TEXTBOX
+252
+127
+402
+145
+Enemies
+11
+0.0
+1
+
+INPUTBOX
+430
+147
+558
+207
+enemies-vision_range
+30
+1
+0
+Number
+
+TEXTBOX
+633
+15
+783
+33
+Drones
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
