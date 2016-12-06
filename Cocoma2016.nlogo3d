@@ -262,7 +262,10 @@ to setup-env
     ask n-of nb-mountains patches with [pzcor = mapAlt and (pxcor > ( base-max-pxcor + 10 ) or pycor > ( base-max-pycor + 10 ))] [
       let rayon ((random basseAlt) + (hauteAlt - basseAlt))
       ask patches with [distance-nowrap myself < rayon] [
-        set pcolor grey set obstacle? true
+        if (random-float 1 < 0.9)
+        [
+          set pcolor grey set obstacle? true
+        ]
       ]
     ]
   ]
@@ -295,8 +298,8 @@ to drone-think
 
   ask drones [
 
-        let rangeShield 5
-        let rangeRecon 15
+        let rangeShield Dist-Shield
+        let rangeRecon Dist-Recon
 
 
         ifelse(leader_split = nobody)
@@ -484,7 +487,7 @@ to drone-think
         if (role = "recon")
         [
           let toTarget patch-ahead 1
-          ifelse ([ distance toTarget ] of dest < 10 and dist target < shooting_range)
+          ifelse ([ distance toTarget ] of dest < Dist-Freedom-Recon and dist target < shooting_range)
           [
             face-nowrap target
             fd speed
@@ -887,7 +890,7 @@ to-report plan-astar [start goal longpath?] ; start et goal sont des patchs
           if (any? enemies)
           [
             let selfpatch self
-            ask enemies with [distance selfpatch < 10 and pzcor = solAlt and member? self listeConnus]
+            ask enemies with [distance selfpatch < distance-danger and pzcor = solAlt and member? self listeConnus]
             [
               set h2 (h2 + 1000)
             ]
@@ -1670,10 +1673,10 @@ nb-cars
 Number
 
 BUTTON
-20
-559
-93
-592
+791
+466
+864
+499
 NIL
 setup
 NIL
@@ -1714,16 +1717,16 @@ INPUTBOX
 122
 176
 nb-rivers
-2
+1
 1
 0
 Number
 
 INPUTBOX
-522
-368
-683
-428
+516
+327
+677
+387
 astar-faster
 0
 1
@@ -1731,10 +1734,10 @@ astar-faster
 Number
 
 INPUTBOX
-522
-442
-683
-502
+516
+391
+677
+451
 astar-max-depth
 5000
 1
@@ -1742,21 +1745,21 @@ astar-max-depth
 Number
 
 SWITCH
-330
-366
-494
-399
-astar-longpath
-astar-longpath
-1
-1
--1000
-
-SWITCH
-330
-410
+329
+359
 493
-443
+392
+astar-longpath
+astar-longpath
+1
+1
+-1000
+
+SWITCH
+329
+403
+492
+436
 astar-randpath
 astar-randpath
 1
@@ -1764,10 +1767,10 @@ astar-randpath
 -1000
 
 SWITCH
-328
-497
+327
 490
-530
+489
+523
 astar-visu-more
 astar-visu-more
 0
@@ -1775,10 +1778,10 @@ astar-visu-more
 -1000
 
 SWITCH
-328
-455
-491
-488
+327
+448
+490
+481
 astar-visu
 astar-visu
 0
@@ -1786,10 +1789,10 @@ astar-visu
 -1000
 
 SLIDER
-20
-506
-192
-539
+791
+413
+963
+446
 simu-speed
 simu-speed
 0
@@ -1811,30 +1814,30 @@ Debug
 1
 
 TEXTBOX
-14
-476
-164
-494
+785
+383
+935
+401
 Simulation
 12
 0.0
 1
 
 TEXTBOX
-311
-337
-461
-355
+310
+330
+460
+348
 A*
 12
 0.0
 1
 
 BUTTON
-116
-559
-182
-592
+887
+466
+953
+499
 start
 go
 T
@@ -1853,16 +1856,16 @@ INPUTBOX
 248
 204
 nb-enemies
-30
+10
 1
 0
 Number
 
 INPUTBOX
-625
-54
-696
-114
+622
+38
+693
+98
 nb-drones
 10
 1
@@ -1897,7 +1900,7 @@ INPUTBOX
 318
 107
 range-split
-10
+0
 1
 0
 Number
@@ -1914,10 +1917,10 @@ delay-reunite
 Number
 
 INPUTBOX
-910
-55
-1009
-115
+907
+39
+1006
+99
 rate-of-fire-drones
 100
 1
@@ -1925,10 +1928,10 @@ rate-of-fire-drones
 Number
 
 INPUTBOX
-697
-54
-791
-114
+694
+38
+788
+98
 proba-hit-drones
 0.8
 1
@@ -1936,32 +1939,32 @@ proba-hit-drones
 Number
 
 INPUTBOX
-608
-117
-719
-177
+605
+101
+716
+161
 Qte_Carburant_Init
-2000
+5000
 1
 0
 Number
 
 INPUTBOX
-719
-117
-810
-177
+716
+101
+807
+161
 carburant-min
-750
+1000
 1
 0
 Number
 
 INPUTBOX
-810
-117
-927
-177
+807
+101
+924
+161
 carbuant-consomme
 1
 1
@@ -2012,10 +2015,10 @@ show_messages
 -1000
 
 INPUTBOX
-1013
-54
-1111
-114
+1010
+38
+1108
+98
 Ammo-Drones
 100
 1
@@ -2045,12 +2048,12 @@ com-range
 Number
 
 INPUTBOX
-793
-54
-905
-114
+790
+38
+902
+98
 drone-vision_range
-20
+30
 1
 0
 Number
@@ -2102,16 +2105,16 @@ INPUTBOX
 491
 108
 path-refresh
-200
+100
 1
 0
 Number
 
 INPUTBOX
-927
-117
-1048
-177
+924
+101
+1045
+161
 drone-shooting_range
 20
 1
@@ -2152,10 +2155,10 @@ hp_enemies
 Number
 
 INPUTBOX
-1048
-117
-1116
-177
+1045
+101
+1113
+161
 hp_drones
 5
 1
@@ -2172,6 +2175,50 @@ canShootDrones?
 1
 1
 -1000
+
+INPUTBOX
+713
+163
+790
+223
+Dist-Shield
+5
+1
+0
+Number
+
+INPUTBOX
+793
+164
+870
+224
+Dist-Recon
+15
+1
+0
+Number
+
+INPUTBOX
+873
+164
+987
+224
+Dist-Freedom-Recon
+8
+1
+0
+Number
+
+INPUTBOX
+516
+458
+612
+518
+distance-danger
+10
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
